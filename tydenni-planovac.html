@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Týdenní Plánovač</title>
+  <link rel="manifest" href="data:application/json,{&quot;name&quot;:&quot;Týdenní Plánovač&quot;,&quot;short_name&quot;:&quot;Plánovač&quot;,&quot;start_url&quot;:&quot;.&quot;,&quot;display&quot;:&quot;standalone&quot;,&quot;background_color&quot;:&quot;%231a1a2e&quot;,&quot;theme_color&quot;:&quot;%237c3aed&quot;}">
+  <meta name="theme-color" content="#7c3aed">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📅</text></svg>">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      min-height: 100vh;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      font-family: 'Space Grotesk', 'Segoe UI', system-ui, sans-serif;
+      color: #e4e4e7;
+    }
+    
+    #root {
+      min-height: 100vh;
+    }
+    
+    .app-container {
+      padding: 24px;
+      min-height: 100vh;
+    }
+    
+    .planner-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 2.2rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #00d4ff 0%, #7c3aed 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      text-align: center;
+      letter-spacing: -0.02em;
+    }
+    
+    .planner-header {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 28px;
+      flex-wrap: wrap;
+    }
+    
+    .save-status {
+      font-size: 0.8rem;
+      color: #10b981;
+      font-family: 'JetBrains Mono', monospace;
+      animation: fadeIn 0.3s;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    
+    .header-actions {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .header-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 6px 12px;
+      color: #71717a;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+    
+    .header-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #a1a1aa;
+    }
+    
+    .header-btn.danger:hover {
+      background: rgba(239, 68, 68, 0.2);
+      color: #f87171;
+      border-color: rgba(239, 68, 68, 0.3);
+    }
+    
+    .main-container {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 24px;
+      max-width: 1500px;
+      margin: 0 auto;
+    }
+    
+    @media (max-width: 1000px) {
+      .main-container {
+        grid-template-columns: 1fr;
+      }
+      .calendar-grid {
+        grid-template-columns: repeat(3, 1fr) !important;
+      }
+    }
+    
+    @media (max-width: 700px) {
+      .calendar-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+      }
+      .app-container {
+        padding: 12px;
+      }
+    }
+    
+    .backlog-panel {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 20px;
+      padding: 20px;
+      backdrop-filter: blur(20px);
+      height: fit-content;
+      position: sticky;
+      top: 24px;
+      transition: all 0.3s;
+    }
+    
+    .backlog-panel.can-drop {
+      border: 2px dashed rgba(245, 158, 11, 0.4);
+    }
+    
+    .backlog-panel.drag-over {
+      border-color: #f59e0b;
+      background: rgba(245, 158, 11, 0.1);
+      box-shadow: 0 0 30px rgba(245, 158, 11, 0.2);
+    }
+    
+    .backlog-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #a1a1aa;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .backlog-title::before {
+      content: '';
+      width: 8px;
+      height: 8px;
+      background: #f59e0b;
+      border-radius: 50%;
+      box-shadow: 0 0 12px #f59e0b;
+    }
+    
+    .add-task-form {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    
+    .add-task-input {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 10px 14px;
+      color: #e4e4e7;
+      font-size: 0.85rem;
+      outline: none;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+    
+    .add-task-input:focus {
+      border-color: #7c3aed;
+      box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
+    }
+    
+    .add-task-input::placeholder {
+      color: #71717a;
+    }
+    
+    .add-task-btn {
+      background: linear-gradient(135deg, #7c3aed 0%, #6366f1 100%);
+      border: none;
+      border-radius: 10px;
+      padding: 10px 16px;
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 1.1rem;
+    }
+    
+    .add-task-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 4px 20px rgba(124, 58, 237, 0.4);
+    }
+    
+    .task-card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin-bottom: 8px;
+      cursor: grab;
+      transition: all 0.2s;
+      position: relative;
+    }
+    
+    .task-card:hover {
+      background: rgba(255, 255, 255, 0.08);
+      transform: translateX(4px);
+      border-color: rgba(124, 58, 237, 0.3);
+    }
+    
+    .task-card:active {
+      cursor: grabbing;
+    }
+    
+    .task-card.dragging {
+      opacity: 0.5;
+      transform: scale(0.98);
+    }
+    
+    .task-card.scheduled {
+      border-left: 3px solid #10b981;
+    }
+    
+    .task-title {
+      font-size: 0.88rem;
+      font-weight: 500;
+      color: #e4e4e7;
+      padding-right: 20px;
+    }
+    
+    .task-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+    
+    .task-duration-badge {
+      background: rgba(124, 58, 237, 0.2);
+      color: #a78bfa;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      padding: 3px 8px;
+      border-radius: 20px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .task-duration-badge:hover {
+      background: rgba(124, 58, 237, 0.4);
+    }
+    
+    .task-scheduled-badge {
+      background: rgba(16, 185, 129, 0.2);
+      color: #34d399;
+      font-size: 0.7rem;
+      padding: 3px 8px;
+      border-radius: 20px;
+      font-weight: 500;
+    }
+    
+    .task-day-badge {
+      background: rgba(0, 212, 255, 0.15);
+      color: #00d4ff;
+      font-size: 0.7rem;
+      padding: 3px 8px;
+      border-radius: 20px;
+      font-weight: 500;
+    }
+    
+    .task-delete-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: none;
+      border: none;
+      color: #71717a;
+      cursor: pointer;
+      padding: 4px;
+      opacity: 0;
+      transition: all 0.2s;
+      font-size: 0.8rem;
+    }
+    
+    .task-card:hover .task-delete-btn {
+      opacity: 1;
+    }
+    
+    .task-delete-btn:hover {
+      color: #ef4444;
+    }
+    
+    .duration-editor {
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 10px;
+      padding: 10px;
+      margin-top: 8px;
+    }
+    
+    .duration-presets {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-bottom: 8px;
+    }
+    
+    .duration-preset {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid transparent;
+      border-radius: 6px;
+      padding: 4px 8px;
+      color: #a1a1aa;
+      font-size: 0.7rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    
+    .duration-preset:hover {
+      background: rgba(124, 58, 237, 0.3);
+      color: #c4b5fd;
+    }
+    
+    .duration-preset.selected {
+      background: #7c3aed;
+      color: white;
+      border-color: #7c3aed;
+    }
+    
+    .duration-custom {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .duration-custom-label {
+      font-size: 0.7rem;
+      color: #71717a;
+    }
+    
+    .duration-custom-input {
+      width: 50px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 6px;
+      padding: 4px 8px;
+      color: #e4e4e7;
+      font-size: 0.75rem;
+      font-family: 'JetBrains Mono', monospace;
+      outline: none;
+      text-align: center;
+    }
+    
+    .duration-custom-input:focus {
+      border-color: #7c3aed;
+    }
+    
+    .duration-custom-btn {
+      background: #10b981;
+      border: none;
+      border-radius: 6px;
+      padding: 4px 10px;
+      color: white;
+      font-size: 0.7rem;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    
+    .duration-custom-btn:hover {
+      background: #059669;
+    }
+    
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+    }
+    
+    .day-column {
+      background: rgba(255, 255, 255, 0.02);
+      border: 2px dashed rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      padding: 14px;
+      min-height: 450px;
+      transition: all 0.3s;
+    }
+    
+    .day-column.drag-over {
+      border-color: #7c3aed;
+      background: rgba(124, 58, 237, 0.1);
+      box-shadow: 0 0 30px rgba(124, 58, 237, 0.2);
+    }
+    
+    .day-header {
+      text-align: center;
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    
+    .day-name {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #e4e4e7;
+    }
+    
+    .day-hours {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      color: #71717a;
+      margin-top: 4px;
+    }
+    
+    .day-hours-value {
+      color: #00d4ff;
+    }
+    
+    .day-hours-over {
+      color: #ef4444;
+    }
+    
+    .day-tasks {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    
+    .scheduled-task {
+      background: linear-gradient(135deg, rgba(124, 58, 237, 0.2) 0%, rgba(99, 102, 241, 0.15) 100%);
+      border: 1px solid rgba(124, 58, 237, 0.3);
+      border-radius: 10px;
+      padding: 10px;
+      cursor: grab;
+      transition: all 0.2s;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .scheduled-task::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      background: linear-gradient(180deg, #7c3aed 0%, #6366f1 100%);
+    }
+    
+    .scheduled-task:hover {
+      transform: scale(1.02);
+      box-shadow: 0 4px 20px rgba(124, 58, 237, 0.3);
+      z-index: 10;
+    }
+    
+    .scheduled-task.dragging {
+      opacity: 0.5;
+    }
+    
+    .scheduled-task-title {
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: #e4e4e7;
+      padding-left: 8px;
+      padding-right: 24px;
+    }
+    
+    .scheduled-task-order {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      color: #71717a;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.65rem;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.2s;
+    }
+    
+    .scheduled-task-remove {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      background: rgba(239, 68, 68, 0.2);
+      border: none;
+      color: #f87171;
+      font-size: 0.7rem;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      opacity: 0;
+      transition: all 0.2s;
+    }
+    
+    .scheduled-task:hover .scheduled-task-remove {
+      opacity: 1;
+    }
+    
+    .scheduled-task:hover .scheduled-task-order {
+      opacity: 0;
+    }
+    
+    .scheduled-task-remove:hover {
+      background: rgba(239, 68, 68, 0.4);
+      color: #fca5a5;
+      transform: scale(1.1);
+    }
+    
+    .scheduled-task-duration {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      color: #a78bfa;
+      padding-left: 8px;
+      margin-top: auto;
+      padding-top: 6px;
+      cursor: pointer;
+    }
+    
+    .scheduled-task-duration:hover {
+      color: #c4b5fd;
+    }
+    
+    .duration-selector {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px;
+      margin-top: 6px;
+      padding-left: 8px;
+    }
+    
+    .duration-option {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid transparent;
+      border-radius: 5px;
+      padding: 3px 6px;
+      color: #a1a1aa;
+      font-size: 0.65rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    
+    .duration-option:hover {
+      background: rgba(124, 58, 237, 0.3);
+      color: #c4b5fd;
+    }
+    
+    .duration-option.selected {
+      background: #7c3aed;
+      color: white;
+    }
+    
+    .drop-indicator {
+      height: 3px;
+      background: linear-gradient(90deg, transparent, #7c3aed, transparent);
+      border-radius: 2px;
+      margin: 3px 0;
+      animation: pulse 1s infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 0.5; }
+      50% { opacity: 1; }
+    }
+    
+    .empty-day {
+      text-align: center;
+      padding: 30px 12px;
+      color: #52525b;
+      font-size: 0.8rem;
+    }
+    
+    .empty-day-icon {
+      font-size: 1.8rem;
+      margin-bottom: 8px;
+      opacity: 0.5;
+    }
+    
+    .empty-tasks {
+      text-align: center;
+      padding: 20px;
+      color: #52525b;
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  
+  <script type="text/babel">
+    const { useState, useEffect, Fragment } = React;
+    
+    const DAYS = [
+      { id: 'mon', name: 'Pondělí', short: 'Po' },
+      { id: 'tue', name: 'Úterý', short: 'Út' },
+      { id: 'wed', name: 'Středa', short: 'St' },
+      { id: 'thu', name: 'Čtvrtek', short: 'Čt' },
+      { id: 'fri', name: 'Pátek', short: 'Pá' },
+    ];
+    
+    const DEFAULT_TASKS = [
+      { id: 1, title: 'Můj první úkol', scheduledDay: null, duration: 1, order: 0 },
+    ];
+    
+    const DURATION_OPTIONS = [
+      { value: 0.5, label: '30m' },
+      { value: 1, label: '1h' },
+      { value: 1.5, label: '1.5h' },
+      { value: 2, label: '2h' },
+      { value: 3, label: '3h' },
+      { value: 4, label: '4h' },
+      { value: 6, label: '6h' },
+      { value: 8, label: '8h' },
+    ];
+    
+    const formatDuration = (hours) => {
+      if (hours < 1) return `${Math.round(hours * 60)} min`;
+      if (hours === Math.floor(hours)) return `${hours} hod`;
+      return `${hours} hod`;
+    };
+    
+    const STORAGE_KEY = 'weekly-planner-tasks';
+    
+    function WeeklyPlanner() {
+      const [tasks, setTasks] = useState([]);
+      const [isLoaded, setIsLoaded] = useState(false);
+      const [saveStatus, setSaveStatus] = useState('');
+      const [newTaskTitle, setNewTaskTitle] = useState('');
+      const [draggedTask, setDraggedTask] = useState(null);
+      const [dragOverDay, setDragOverDay] = useState(null);
+      const [dragOverIndex, setDragOverIndex] = useState(null);
+      const [editingDuration, setEditingDuration] = useState(null);
+      const [customDuration, setCustomDuration] = useState('');
+      
+      // Load tasks from localStorage
+      useEffect(() => {
+        try {
+          const saved = localStorage.getItem(STORAGE_KEY);
+          if (saved) {
+            setTasks(JSON.parse(saved));
+          } else {
+            setTasks(DEFAULT_TASKS);
+          }
+        } catch (e) {
+          setTasks(DEFAULT_TASKS);
+        }
+        setIsLoaded(true);
+      }, []);
+      
+      // Save tasks to localStorage
+      useEffect(() => {
+        if (!isLoaded) return;
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+          setSaveStatus('✓ Uloženo');
+          const timer = setTimeout(() => setSaveStatus(''), 2000);
+          return () => clearTimeout(timer);
+        } catch (e) {
+          console.log('Could not save');
+        }
+      }, [tasks, isLoaded]);
+      
+      const getTasksForDay = (dayId) => 
+        tasks
+          .filter(t => t.scheduledDay === dayId)
+          .sort((a, b) => a.order - b.order);
+      
+      const getTotalHours = (dayId) => 
+        getTasksForDay(dayId).reduce((sum, t) => sum + (t.duration || 1), 0);
+      
+      const addTask = () => {
+        if (!newTaskTitle.trim()) return;
+        setTasks([...tasks, {
+          id: Date.now(),
+          title: newTaskTitle.trim(),
+          scheduledDay: null,
+          duration: 1,
+          order: 0
+        }]);
+        setNewTaskTitle('');
+      };
+      
+      const handleDragStart = (e, task) => {
+        setDraggedTask(task);
+        e.dataTransfer.effectAllowed = 'move';
+      };
+      
+      const handleDragOver = (e, dayId, index = null) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        setDragOverDay(dayId);
+        setDragOverIndex(index);
+      };
+      
+      const handleDragLeave = () => {
+        setDragOverDay(null);
+        setDragOverIndex(null);
+      };
+      
+      const handleDropOnDay = (e, dayId, dropIndex = null) => {
+        e.preventDefault();
+        if (!draggedTask) return;
+        
+        const dayTasks = getTasksForDay(dayId).filter(t => t.id !== draggedTask.id);
+        const insertIndex = dropIndex !== null ? dropIndex : dayTasks.length;
+        
+        const reorderedTasks = tasks.map(t => {
+          if (t.id === draggedTask.id) {
+            return { ...t, scheduledDay: dayId, order: insertIndex };
+          }
+          if (t.scheduledDay === dayId && t.id !== draggedTask.id) {
+            const currentIndex = dayTasks.findIndex(dt => dt.id === t.id);
+            let newOrder = currentIndex;
+            if (currentIndex >= insertIndex) {
+              newOrder = currentIndex + 1;
+            }
+            return { ...t, order: newOrder };
+          }
+          return t;
+        });
+        
+        setTasks(reorderedTasks);
+        setDraggedTask(null);
+        setDragOverDay(null);
+        setDragOverIndex(null);
+      };
+      
+      const handleDropOnBacklog = (e) => {
+        e.preventDefault();
+        if (!draggedTask) return;
+        
+        setTasks(tasks.map(t => 
+          t.id === draggedTask.id 
+            ? { ...t, scheduledDay: null, order: 0 }
+            : t
+        ));
+        setDraggedTask(null);
+        setDragOverDay(null);
+        setDragOverIndex(null);
+      };
+      
+      const updateDuration = (taskId, duration) => {
+        setTasks(tasks.map(t => 
+          t.id === taskId ? { ...t, duration } : t
+        ));
+        setEditingDuration(null);
+        setCustomDuration('');
+      };
+      
+      const handleCustomDuration = (taskId) => {
+        const value = parseFloat(customDuration);
+        if (!isNaN(value) && value > 0 && value <= 12) {
+          updateDuration(taskId, value);
+        }
+      };
+      
+      const startEditing = (taskId, currentDuration) => {
+        setEditingDuration(taskId);
+        setCustomDuration(currentDuration.toString());
+      };
+      
+      const deleteTask = (taskId) => {
+        setTasks(tasks.filter(t => t.id !== taskId));
+      };
+      
+      const removeFromSchedule = (taskId) => {
+        setTasks(tasks.map(t => 
+          t.id === taskId 
+            ? { ...t, scheduledDay: null, order: 0 }
+            : t
+        ));
+      };
+      
+      const clearAllTasks = () => {
+        if (confirm('Opravdu chceš smazat všechny úkoly?')) {
+          setTasks([]);
+        }
+      };
+      
+      const resetWeek = () => {
+        if (confirm('Odebrat všechny úkoly z rozvrhu? (úkoly zůstanou v seznamu)')) {
+          setTasks(tasks.map(t => ({ ...t, scheduledDay: null, order: 0 })));
+        }
+      };
+      
+      const getHeightForDuration = (duration) => {
+        const baseHeight = 56;
+        const heightPerHour = 44;
+        return baseHeight + (duration - 0.5) * heightPerHour;
+      };
+      
+      return (
+        <div className="app-container">
+          <div className="planner-header">
+            <h1 className="planner-title">📅 Týdenní Plánovač</h1>
+          </div>
+          
+          <div className="planner-header">
+            {saveStatus && <span className="save-status">{saveStatus}</span>}
+            <div className="header-actions">
+              <button className="header-btn" onClick={resetWeek}>
+                ↺ Vyčistit týden
+              </button>
+              <button className="header-btn danger" onClick={clearAllTasks}>
+                🗑 Smazat vše
+              </button>
+            </div>
+          </div>
+          
+          <div className="main-container">
+            <div 
+              className={`backlog-panel ${draggedTask?.scheduledDay ? 'can-drop' : ''} ${dragOverDay === 'backlog' ? 'drag-over' : ''}`}
+              onDragOver={(e) => { if (draggedTask?.scheduledDay) { e.preventDefault(); setDragOverDay('backlog'); }}}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => { if (draggedTask?.scheduledDay) handleDropOnBacklog(e); }}
+            >
+              <div className="backlog-title">Všechny úkoly</div>
+              
+              <div className="add-task-form">
+                <input
+                  type="text"
+                  className="add-task-input"
+                  placeholder="Nový úkol..."
+                  value={newTaskTitle}
+                  onChange={(e) => setNewTaskTitle(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && addTask()}
+                />
+                <button className="add-task-btn" onClick={addTask}>+</button>
+              </div>
+              
+              <div>
+                {tasks.map(task => (
+                  <div
+                    key={task.id}
+                    className={`task-card ${draggedTask?.id === task.id ? 'dragging' : ''} ${task.scheduledDay ? 'scheduled' : ''}`}
+                    draggable={editingDuration !== task.id}
+                    onDragStart={(e) => editingDuration !== task.id && handleDragStart(e, task)}
+                    onDragEnd={() => setDraggedTask(null)}
+                  >
+                    <button 
+                      className="task-delete-btn"
+                      onClick={() => deleteTask(task.id)}
+                    >
+                      ✕
+                    </button>
+                    <div className="task-title">{task.title}</div>
+                    
+                    {editingDuration === task.id ? (
+                      <div className="duration-editor">
+                        <div className="duration-presets">
+                          {DURATION_OPTIONS.map(opt => (
+                            <button
+                              key={opt.value}
+                              className={`duration-preset ${task.duration === opt.value ? 'selected' : ''}`}
+                              onClick={() => updateDuration(task.id, opt.value)}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="duration-custom">
+                          <span className="duration-custom-label">Vlastní:</span>
+                          <input
+                            type="number"
+                            className="duration-custom-input"
+                            value={customDuration}
+                            onChange={(e) => setCustomDuration(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && handleCustomDuration(task.id)}
+                            placeholder="hod"
+                            min="0.25"
+                            max="12"
+                            step="0.25"
+                            autoFocus
+                          />
+                          <button 
+                            className="duration-custom-btn"
+                            onClick={() => handleCustomDuration(task.id)}
+                          >
+                            OK
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="task-meta">
+                        <span 
+                          className="task-duration-badge"
+                          onClick={() => startEditing(task.id, task.duration)}
+                        >
+                          ⏱ {formatDuration(task.duration)}
+                        </span>
+                        {task.scheduledDay && (
+                          <Fragment>
+                            <span className="task-scheduled-badge">✓ V plánu</span>
+                            <span className="task-day-badge">
+                              {DAYS.find(d => d.id === task.scheduledDay)?.short}
+                            </span>
+                          </Fragment>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                
+                {tasks.length === 0 && (
+                  <div className="empty-tasks">
+                    Přidej první úkol ☝️
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="calendar-grid">
+              {DAYS.map(day => {
+                const dayTasks = getTasksForDay(day.id);
+                const totalHours = getTotalHours(day.id);
+                const isOver = totalHours > 8;
+                
+                return (
+                  <div
+                    key={day.id}
+                    className={`day-column ${dragOverDay === day.id ? 'drag-over' : ''}`}
+                    onDragOver={(e) => handleDragOver(e, day.id, dayTasks.length)}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => handleDropOnDay(e, day.id, dayTasks.length)}
+                  >
+                    <div className="day-header">
+                      <div className="day-name">{day.name}</div>
+                      <div className="day-hours">
+                        <span className={isOver ? 'day-hours-over' : 'day-hours-value'}>
+                          {totalHours}
+                        </span> / 8 hod
+                      </div>
+                    </div>
+                    
+                    <div className="day-tasks">
+                      {dayTasks.length === 0 ? (
+                        <div className="empty-day">
+                          <div className="empty-day-icon">📭</div>
+                          Přetáhni sem
+                        </div>
+                      ) : (
+                        dayTasks.map((task, index) => (
+                          <Fragment key={task.id}>
+                            {dragOverDay === day.id && dragOverIndex === index && draggedTask?.id !== task.id && (
+                              <div className="drop-indicator" />
+                            )}
+                            <div
+                              className={`scheduled-task ${draggedTask?.id === task.id ? 'dragging' : ''}`}
+                              style={{ minHeight: getHeightForDuration(task.duration) }}
+                              draggable
+                              onDragStart={(e) => handleDragStart(e, task)}
+                              onDragEnd={() => setDraggedTask(null)}
+                              onDragOver={(e) => handleDragOver(e, day.id, index)}
+                              onDrop={(e) => { e.stopPropagation(); handleDropOnDay(e, day.id, index); }}
+                            >
+                              <span className="scheduled-task-order">{index + 1}</span>
+                              <button 
+                                className="scheduled-task-remove"
+                                onClick={(e) => { e.stopPropagation(); removeFromSchedule(task.id); }}
+                                title="Odebrat z rozvrhu"
+                              >
+                                ✕
+                              </button>
+                              <div className="scheduled-task-title">{task.title}</div>
+                              
+                              {editingDuration === task.id ? (
+                                <div className="duration-selector">
+                                  {DURATION_OPTIONS.map(opt => (
+                                    <button
+                                      key={opt.value}
+                                      className={`duration-option ${task.duration === opt.value ? 'selected' : ''}`}
+                                      onClick={(e) => { e.stopPropagation(); updateDuration(task.id, opt.value); }}
+                                    >
+                                      {opt.label}
+                                    </button>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div 
+                                  className="scheduled-task-duration"
+                                  onClick={() => startEditing(task.id, task.duration)}
+                                >
+                                  ⏱ {formatDuration(task.duration)}
+                                </div>
+                              )}
+                            </div>
+                          </Fragment>
+                        ))
+                      )}
+                      {dragOverDay === day.id && dragOverIndex === dayTasks.length && dayTasks.length > 0 && (
+                        <div className="drop-indicator" />
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    ReactDOM.createRoot(document.getElementById('root')).render(<WeeklyPlanner />);
+  </script>
+</body>
+</html>
