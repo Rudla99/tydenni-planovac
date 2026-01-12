@@ -1118,6 +1118,84 @@
     .category-stats-row:hover {
       background: rgba(255, 255, 255, 0.05);
     }
+
+    /* Export modal styles */
+    .export-section {
+      margin-bottom: 20px;
+    }
+
+    .export-section-title {
+      font-size: 0.9rem;
+      color: #a1a1aa;
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+
+    .export-mode-options {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .export-mode-option {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .export-mode-option:hover {
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .export-mode-option.selected {
+      border-color: #7c3aed;
+      background: rgba(124, 58, 237, 0.1);
+    }
+
+    .export-mode-option input[type="radio"] {
+      accent-color: #7c3aed;
+    }
+
+    .export-selection-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 300px;
+      overflow-y: auto;
+      padding: 10px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 8px;
+    }
+
+    .export-selection-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 6px;
+      font-size: 0.85rem;
+    }
+
+    .export-selection-item input[type="checkbox"] {
+      accent-color: #7c3aed;
+    }
+
+    .export-preview {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 10px;
+      padding: 12px;
+      font-size: 0.85rem;
+      color: #a1a1aa;
+      margin-top: 16px;
+    }
   </style>
 </head>
 <body>
@@ -1227,6 +1305,94 @@
         return `${year - 1}-W52`;
       }
       return `${year}-W${String(prevWeek).padStart(2, '0')}`;
+    };
+
+    // iCal Export helpers
+    const formatICalDate = (date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}${month}${day}`;
+    };
+
+    const formatICalDateTime = (date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      const seconds = String(date.getSeconds()).padStart(2, '0');
+      return `${year}${month}${day}T${hours}${minutes}${seconds}`;
+    };
+
+    const generateICalEvent = (task, date, categories) => {
+      const category = categories.find(c => c.id === task.categoryId);
+      const startDate = new Date(date);
+      startDate.setHours(9, 0, 0, 0); // Default start time 9:00
+
+      const endDate = new Date(startDate);
+      endDate.setHours(startDate.getHours() + Math.floor(task.duration));
+      endDate.setMinutes((task.duration % 1) * 60);
+
+      const uid = `${task.id}@tydenni-planovac`;
+      const dtstamp = formatICalDateTime(new Date());
+      const dtstart = formatICalDateTime(startDate);
+      const dtend = formatICalDateTime(endDate);
+
+      let description = `Délka: ${formatDuration(task.duration)}`;
+      if (category) {
+        description += `\\nKategorie: ${category.name}`;
+      }
+      if (task.completed) {
+        description += `\\nStav: Dokončeno`;
+      }
+
+      return `BEGIN:VEVENT
+UID:${uid}
+DTSTAMP:${dtstamp}
+DTSTART:${dtstart}
+DTEND:${dtend}
+SUMMARY:${task.title}
+DESCRIPTION:${description}
+STATUS:${task.completed ? 'COMPLETED' : 'CONFIRMED'}
+CATEGORIES:${category ? category.name : 'Bez kategorie'}
+END:VEVENT`;
+    };
+
+    const generateICalFile = (tasks, weekDates, categories, weekKey) => {
+      const events = [];
+
+      tasks.forEach(task => {
+        if (task.scheduledDay) {
+          const dayIndex = DAYS.findIndex(d => d.id === task.scheduledDay);
+          if (dayIndex !== -1 && weekDates[dayIndex]) {
+            events.push(generateICalEvent(task, weekDates[dayIndex], categories));
+          }
+        }
+      });
+
+      const icalContent = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Týdenní Plánovač//CS
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:Týdenní plán ${weekKey}
+X-WR-TIMEZONE:Europe/Prague
+${events.join('\n')}
+END:VCALENDAR`;
+
+      return icalContent;
+    };
+
+    const downloadICalFile = (content, filename) => {
+      const blob = new Blob([content], { type: 'text/calendar;charset=utf-8' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
     };
 
     // Modal Component
@@ -1514,6 +1680,175 @@
       );
     }
 
+    // iCal Export Modal
+    function ICalExportModal({ isOpen, onClose, tasks, weekKey, weekDates, categories }) {
+      const [exportMode, setExportMode] = useState('all');
+      const [selectedDays, setSelectedDays] = useState(['mon', 'tue', 'wed', 'thu', 'fri']);
+      const [selectedTasks, setSelectedTasks] = useState([]);
+
+      const scheduledTasks = tasks.filter(t => t.scheduledDay);
+
+      const getTasksToExport = () => {
+        if (exportMode === 'all') {
+          return scheduledTasks;
+        } else if (exportMode === 'days') {
+          return scheduledTasks.filter(t => selectedDays.includes(t.scheduledDay));
+        } else if (exportMode === 'tasks') {
+          return scheduledTasks.filter(t => selectedTasks.includes(t.id));
+        }
+        return [];
+      };
+
+      const handleExport = () => {
+        const tasksToExport = getTasksToExport();
+        if (tasksToExport.length === 0) {
+          alert('Není co exportovat. Žádné úkoly nejsou naplánované.');
+          return;
+        }
+
+        const icalContent = generateICalFile(tasksToExport, weekDates, categories, weekKey);
+        const filename = `tydenni-plan-${weekKey}.ics`;
+        downloadICalFile(icalContent, filename);
+        onClose();
+      };
+
+      const toggleDay = (dayId) => {
+        if (selectedDays.includes(dayId)) {
+          setSelectedDays(selectedDays.filter(d => d !== dayId));
+        } else {
+          setSelectedDays([...selectedDays, dayId]);
+        }
+      };
+
+      const toggleTask = (taskId) => {
+        if (selectedTasks.includes(taskId)) {
+          setSelectedTasks(selectedTasks.filter(id => id !== taskId));
+        } else {
+          setSelectedTasks([...selectedTasks, taskId]);
+        }
+      };
+
+      const tasksToExport = getTasksToExport();
+
+      return (
+        <Modal
+          isOpen={isOpen}
+          onClose={onClose}
+          title="📥 Export do Outlooku (iCal)"
+          footer={
+            <>
+              <button className="btn btn-secondary" onClick={onClose}>Zrušit</button>
+              <button className="btn btn-primary" onClick={handleExport}>
+                Stáhnout .ics soubor ({tasksToExport.length})
+              </button>
+            </>
+          }
+        >
+          <div className="export-section">
+            <div className="export-section-title">Co chceš exportovat?</div>
+            <div className="export-mode-options">
+              <div
+                className={`export-mode-option ${exportMode === 'all' ? 'selected' : ''}`}
+                onClick={() => setExportMode('all')}
+              >
+                <input type="radio" checked={exportMode === 'all'} readOnly />
+                <div>
+                  <div style={{ fontWeight: 600, marginBottom: '2px' }}>Celý týden</div>
+                  <div style={{ fontSize: '0.75rem', color: '#71717a' }}>
+                    Všechny naplánované úkoly ({scheduledTasks.length})
+                  </div>
+                </div>
+              </div>
+
+              <div
+                className={`export-mode-option ${exportMode === 'days' ? 'selected' : ''}`}
+                onClick={() => setExportMode('days')}
+              >
+                <input type="radio" checked={exportMode === 'days'} readOnly />
+                <div>
+                  <div style={{ fontWeight: 600, marginBottom: '2px' }}>Vybrané dny</div>
+                  <div style={{ fontSize: '0.75rem', color: '#71717a' }}>
+                    Vyber které dny chceš exportovat
+                  </div>
+                </div>
+              </div>
+
+              <div
+                className={`export-mode-option ${exportMode === 'tasks' ? 'selected' : ''}`}
+                onClick={() => setExportMode('tasks')}
+              >
+                <input type="radio" checked={exportMode === 'tasks'} readOnly />
+                <div>
+                  <div style={{ fontWeight: 600, marginBottom: '2px' }}>Vybrané úkoly</div>
+                  <div style={{ fontSize: '0.75rem', color: '#71717a' }}>
+                    Vyber konkrétní úkoly k exportu
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {exportMode === 'days' && (
+            <div className="export-section">
+              <div className="export-section-title">Vyber dny:</div>
+              <div className="export-selection-list">
+                {DAYS.map(day => {
+                  const dayTasks = scheduledTasks.filter(t => t.scheduledDay === day.id);
+                  return (
+                    <div key={day.id} className="export-selection-item">
+                      <input
+                        type="checkbox"
+                        checked={selectedDays.includes(day.id)}
+                        onChange={() => toggleDay(day.id)}
+                      />
+                      <span>
+                        {day.name} ({dayTasks.length} {dayTasks.length === 1 ? 'úkol' : dayTasks.length < 5 ? 'úkoly' : 'úkolů'})
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {exportMode === 'tasks' && (
+            <div className="export-section">
+              <div className="export-section-title">Vyber úkoly:</div>
+              <div className="export-selection-list">
+                {scheduledTasks.map(task => {
+                  const day = DAYS.find(d => d.id === task.scheduledDay);
+                  const category = categories.find(c => c.id === task.categoryId);
+                  return (
+                    <div key={task.id} className="export-selection-item">
+                      <input
+                        type="checkbox"
+                        checked={selectedTasks.includes(task.id)}
+                        onChange={() => toggleTask(task.id)}
+                      />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 500 }}>{task.title}</div>
+                        <div style={{ fontSize: '0.75rem', color: '#71717a', marginTop: '2px' }}>
+                          {day?.short} • {formatDuration(task.duration)}
+                          {category && ` • ${category.name}`}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <div className="export-preview">
+            📋 Připraveno k exportu: {tasksToExport.length} {tasksToExport.length === 1 ? 'úkol' : tasksToExport.length < 5 ? 'úkoly' : 'úkolů'}
+            <div style={{ fontSize: '0.75rem', marginTop: '8px', color: '#71717a' }}>
+              💡 Po stažení importuj .ics soubor do Outlook kalendáře
+            </div>
+          </div>
+        </Modal>
+      );
+    }
+
     // Statistics View
     function StatisticsView({ isOpen, onClose, data, categories }) {
       const allWeeks = Object.keys(data.weeks).sort();
@@ -1680,6 +2015,7 @@
       const [showCategoryManager, setShowCategoryManager] = useState(false);
       const [showTransferModal, setShowTransferModal] = useState(false);
       const [showStatistics, setShowStatistics] = useState(false);
+      const [showExportModal, setShowExportModal] = useState(false);
 
       // Load data from localStorage
       useEffect(() => {
@@ -1936,6 +2272,9 @@
           <div className="planner-header">
             {saveStatus && <span className="save-status">{saveStatus}</span>}
             <div className="header-actions">
+              <button className="header-btn primary" onClick={() => setShowExportModal(true)}>
+                📥 Export do Outlooku
+              </button>
               <button className="header-btn primary" onClick={() => setShowStatistics(true)}>
                 📊 Statistiky
               </button>
@@ -2207,6 +2546,15 @@
             isOpen={showStatistics}
             onClose={() => setShowStatistics(false)}
             data={data}
+            categories={data.categories}
+          />
+
+          <ICalExportModal
+            isOpen={showExportModal}
+            onClose={() => setShowExportModal(false)}
+            tasks={currentTasks}
+            weekKey={currentWeekKey}
+            weekDates={weekDates}
             categories={data.categories}
           />
         </div>
