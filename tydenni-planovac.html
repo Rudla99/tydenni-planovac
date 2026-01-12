@@ -13,29 +13,30 @@
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/date-fns@3.0.0/index.min.js"></script>
   <style>
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
     }
-    
+
     body {
       min-height: 100vh;
       background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
       font-family: 'Space Grotesk', 'Segoe UI', system-ui, sans-serif;
       color: #e4e4e7;
     }
-    
+
     #root {
       min-height: 100vh;
     }
-    
+
     .app-container {
       padding: 24px;
       min-height: 100vh;
     }
-    
+
     .planner-title {
       font-family: 'Space Grotesk', sans-serif;
       font-size: 2.2rem;
@@ -47,33 +48,80 @@
       text-align: center;
       letter-spacing: -0.02em;
     }
-    
+
     .planner-header {
       display: flex;
       justify-content: center;
       align-items: center;
       gap: 16px;
-      margin-bottom: 28px;
+      margin-bottom: 20px;
       flex-wrap: wrap;
     }
-    
+
+    .week-navigation {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 8px 16px;
+    }
+
+    .week-nav-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 6px 12px;
+      color: #a1a1aa;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .week-nav-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #e4e4e7;
+    }
+
+    .week-display {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.9rem;
+      color: #e4e4e7;
+      text-align: center;
+      min-width: 220px;
+    }
+
+    .week-range {
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+
+    .week-number {
+      font-size: 0.75rem;
+      color: #71717a;
+      margin-top: 2px;
+    }
+
     .save-status {
       font-size: 0.8rem;
       color: #10b981;
       font-family: 'JetBrains Mono', monospace;
       animation: fadeIn 0.3s;
     }
-    
+
     @keyframes fadeIn {
       from { opacity: 0; }
       to { opacity: 1; }
     }
-    
+
     .header-actions {
       display: flex;
       gap: 8px;
+      flex-wrap: wrap;
     }
-    
+
     .header-btn {
       background: rgba(255, 255, 255, 0.05);
       border: 1px solid rgba(255, 255, 255, 0.1);
@@ -85,18 +133,29 @@
       transition: all 0.2s;
       font-family: inherit;
     }
-    
+
     .header-btn:hover {
       background: rgba(255, 255, 255, 0.1);
       color: #a1a1aa;
     }
-    
+
     .header-btn.danger:hover {
       background: rgba(239, 68, 68, 0.2);
       color: #f87171;
       border-color: rgba(239, 68, 68, 0.3);
     }
-    
+
+    .header-btn.primary {
+      background: rgba(124, 58, 237, 0.2);
+      color: #a78bfa;
+      border-color: rgba(124, 58, 237, 0.3);
+    }
+
+    .header-btn.primary:hover {
+      background: rgba(124, 58, 237, 0.3);
+      color: #c4b5fd;
+    }
+
     .main-container {
       display: grid;
       grid-template-columns: 280px 1fr;
@@ -104,7 +163,7 @@
       max-width: 1500px;
       margin: 0 auto;
     }
-    
+
     @media (max-width: 1000px) {
       .main-container {
         grid-template-columns: 1fr;
@@ -113,7 +172,7 @@
         grid-template-columns: repeat(3, 1fr) !important;
       }
     }
-    
+
     @media (max-width: 700px) {
       .calendar-grid {
         grid-template-columns: repeat(2, 1fr) !important;
@@ -122,7 +181,7 @@
         padding: 12px;
       }
     }
-    
+
     .backlog-panel {
       background: rgba(255, 255, 255, 0.03);
       border: 1px solid rgba(255, 255, 255, 0.08);
@@ -133,18 +192,20 @@
       position: sticky;
       top: 24px;
       transition: all 0.3s;
+      max-height: calc(100vh - 48px);
+      overflow-y: auto;
     }
-    
+
     .backlog-panel.can-drop {
       border: 2px dashed rgba(245, 158, 11, 0.4);
     }
-    
+
     .backlog-panel.drag-over {
       border-color: #f59e0b;
       background: rgba(245, 158, 11, 0.1);
       box-shadow: 0 0 30px rgba(245, 158, 11, 0.2);
     }
-    
+
     .backlog-title {
       font-family: 'Space Grotesk', sans-serif;
       font-size: 1rem;
@@ -155,7 +216,7 @@
       align-items: center;
       gap: 10px;
     }
-    
+
     .backlog-title::before {
       content: '';
       width: 8px;
@@ -164,13 +225,13 @@
       border-radius: 50%;
       box-shadow: 0 0 12px #f59e0b;
     }
-    
+
     .add-task-form {
       display: flex;
       gap: 8px;
       margin-bottom: 16px;
     }
-    
+
     .add-task-input {
       flex: 1;
       background: rgba(255, 255, 255, 0.05);
@@ -183,16 +244,16 @@
       transition: all 0.2s;
       font-family: inherit;
     }
-    
+
     .add-task-input:focus {
       border-color: #7c3aed;
       box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
     }
-    
+
     .add-task-input::placeholder {
       color: #71717a;
     }
-    
+
     .add-task-btn {
       background: linear-gradient(135deg, #7c3aed 0%, #6366f1 100%);
       border: none;
@@ -204,12 +265,12 @@
       transition: all 0.2s;
       font-size: 1.1rem;
     }
-    
+
     .add-task-btn:hover {
       transform: scale(1.05);
       box-shadow: 0 4px 20px rgba(124, 58, 237, 0.4);
     }
-    
+
     .task-card {
       background: rgba(255, 255, 255, 0.05);
       border: 1px solid rgba(255, 255, 255, 0.08);
@@ -220,33 +281,51 @@
       transition: all 0.2s;
       position: relative;
     }
-    
+
     .task-card:hover {
       background: rgba(255, 255, 255, 0.08);
       transform: translateX(4px);
       border-color: rgba(124, 58, 237, 0.3);
     }
-    
+
     .task-card:active {
       cursor: grabbing;
     }
-    
+
     .task-card.dragging {
       opacity: 0.5;
       transform: scale(0.98);
     }
-    
+
     .task-card.scheduled {
       border-left: 3px solid #10b981;
     }
-    
+
+    .task-card.completed {
+      opacity: 0.5;
+    }
+
+    .task-card.completed .task-title {
+      text-decoration: line-through;
+    }
+
     .task-title {
       font-size: 0.88rem;
       font-weight: 500;
       color: #e4e4e7;
       padding-right: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
-    
+
+    .task-checkbox {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+      accent-color: #10b981;
+    }
+
     .task-meta {
       display: flex;
       align-items: center;
@@ -254,7 +333,7 @@
       margin-top: 8px;
       flex-wrap: wrap;
     }
-    
+
     .task-duration-badge {
       background: rgba(124, 58, 237, 0.2);
       color: #a78bfa;
@@ -266,11 +345,29 @@
       cursor: pointer;
       transition: all 0.2s;
     }
-    
+
     .task-duration-badge:hover {
       background: rgba(124, 58, 237, 0.4);
     }
-    
+
+    .task-category-badge {
+      font-size: 0.7rem;
+      padding: 3px 8px;
+      border-radius: 20px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .category-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
     .task-scheduled-badge {
       background: rgba(16, 185, 129, 0.2);
       color: #34d399;
@@ -279,7 +376,7 @@
       border-radius: 20px;
       font-weight: 500;
     }
-    
+
     .task-day-badge {
       background: rgba(0, 212, 255, 0.15);
       color: #00d4ff;
@@ -288,7 +385,7 @@
       border-radius: 20px;
       font-weight: 500;
     }
-    
+
     .task-delete-btn {
       position: absolute;
       top: 8px;
@@ -302,29 +399,29 @@
       transition: all 0.2s;
       font-size: 0.8rem;
     }
-    
+
     .task-card:hover .task-delete-btn {
       opacity: 1;
     }
-    
+
     .task-delete-btn:hover {
       color: #ef4444;
     }
-    
+
     .duration-editor {
       background: rgba(0, 0, 0, 0.3);
       border-radius: 10px;
       padding: 10px;
       margin-top: 8px;
     }
-    
+
     .duration-presets {
       display: flex;
       flex-wrap: wrap;
       gap: 4px;
       margin-bottom: 8px;
     }
-    
+
     .duration-preset {
       background: rgba(255, 255, 255, 0.08);
       border: 1px solid transparent;
@@ -336,18 +433,18 @@
       transition: all 0.2s;
       font-family: 'JetBrains Mono', monospace;
     }
-    
+
     .duration-preset:hover {
       background: rgba(124, 58, 237, 0.3);
       color: #c4b5fd;
     }
-    
+
     .duration-preset.selected {
       background: #7c3aed;
       color: white;
       border-color: #7c3aed;
     }
-    
+
     .duration-custom {
       display: flex;
       gap: 6px;
@@ -356,12 +453,12 @@
       padding-top: 6px;
       border-top: 1px solid rgba(255, 255, 255, 0.1);
     }
-    
+
     .duration-custom-label {
       font-size: 0.7rem;
       color: #71717a;
     }
-    
+
     .duration-custom-input {
       width: 50px;
       background: rgba(255, 255, 255, 0.1);
@@ -374,11 +471,11 @@
       outline: none;
       text-align: center;
     }
-    
+
     .duration-custom-input:focus {
       border-color: #7c3aed;
     }
-    
+
     .duration-custom-btn {
       background: #10b981;
       border: none;
@@ -389,17 +486,17 @@
       cursor: pointer;
       font-weight: 500;
     }
-    
+
     .duration-custom-btn:hover {
       background: #059669;
     }
-    
+
     .calendar-grid {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
       gap: 10px;
     }
-    
+
     .day-column {
       background: rgba(255, 255, 255, 0.02);
       border: 2px dashed rgba(255, 255, 255, 0.08);
@@ -408,48 +505,55 @@
       min-height: 450px;
       transition: all 0.3s;
     }
-    
+
     .day-column.drag-over {
       border-color: #7c3aed;
       background: rgba(124, 58, 237, 0.1);
       box-shadow: 0 0 30px rgba(124, 58, 237, 0.2);
     }
-    
+
     .day-header {
       text-align: center;
       margin-bottom: 14px;
       padding-bottom: 10px;
       border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     }
-    
+
     .day-name {
       font-family: 'Space Grotesk', sans-serif;
       font-size: 1rem;
       font-weight: 600;
       color: #e4e4e7;
     }
-    
+
+    .day-date {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      color: #71717a;
+      margin-top: 2px;
+    }
+
     .day-hours {
       font-family: 'JetBrains Mono', monospace;
       font-size: 0.75rem;
       color: #71717a;
       margin-top: 4px;
     }
-    
+
     .day-hours-value {
       color: #00d4ff;
     }
-    
+
     .day-hours-over {
       color: #ef4444;
     }
-    
+
     .day-tasks {
       display: flex;
       flex-direction: column;
       gap: 6px;
     }
-    
+
     .scheduled-task {
       background: linear-gradient(135deg, rgba(124, 58, 237, 0.2) 0%, rgba(99, 102, 241, 0.15) 100%);
       border: 1px solid rgba(124, 58, 237, 0.3);
@@ -463,7 +567,11 @@
       position: relative;
       overflow: hidden;
     }
-    
+
+    .scheduled-task.completed {
+      opacity: 0.5;
+    }
+
     .scheduled-task::before {
       content: '';
       position: absolute;
@@ -471,27 +579,36 @@
       top: 0;
       bottom: 0;
       width: 4px;
-      background: linear-gradient(180deg, #7c3aed 0%, #6366f1 100%);
     }
-    
+
     .scheduled-task:hover {
       transform: scale(1.02);
       box-shadow: 0 4px 20px rgba(124, 58, 237, 0.3);
       z-index: 10;
     }
-    
+
     .scheduled-task.dragging {
       opacity: 0.5;
     }
-    
+
+    .scheduled-task-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
     .scheduled-task-title {
       font-size: 0.82rem;
       font-weight: 500;
       color: #e4e4e7;
       padding-left: 8px;
-      padding-right: 24px;
+      flex: 1;
     }
-    
+
+    .scheduled-task-title.completed {
+      text-decoration: line-through;
+    }
+
     .scheduled-task-order {
       position: absolute;
       top: 6px;
@@ -508,7 +625,7 @@
       justify-content: center;
       transition: opacity 0.2s;
     }
-    
+
     .scheduled-task-remove {
       position: absolute;
       top: 6px;
@@ -527,21 +644,21 @@
       opacity: 0;
       transition: all 0.2s;
     }
-    
+
     .scheduled-task:hover .scheduled-task-remove {
       opacity: 1;
     }
-    
+
     .scheduled-task:hover .scheduled-task-order {
       opacity: 0;
     }
-    
+
     .scheduled-task-remove:hover {
       background: rgba(239, 68, 68, 0.4);
       color: #fca5a5;
       transform: scale(1.1);
     }
-    
+
     .scheduled-task-duration {
       font-family: 'JetBrains Mono', monospace;
       font-size: 0.7rem;
@@ -551,11 +668,11 @@
       padding-top: 6px;
       cursor: pointer;
     }
-    
+
     .scheduled-task-duration:hover {
       color: #c4b5fd;
     }
-    
+
     .duration-selector {
       display: flex;
       flex-wrap: wrap;
@@ -563,7 +680,7 @@
       margin-top: 6px;
       padding-left: 8px;
     }
-    
+
     .duration-option {
       background: rgba(255, 255, 255, 0.1);
       border: 1px solid transparent;
@@ -575,17 +692,17 @@
       transition: all 0.2s;
       font-family: 'JetBrains Mono', monospace;
     }
-    
+
     .duration-option:hover {
       background: rgba(124, 58, 237, 0.3);
       color: #c4b5fd;
     }
-    
+
     .duration-option.selected {
       background: #7c3aed;
       color: white;
     }
-    
+
     .drop-indicator {
       height: 3px;
       background: linear-gradient(90deg, transparent, #7c3aed, transparent);
@@ -593,39 +710,423 @@
       margin: 3px 0;
       animation: pulse 1s infinite;
     }
-    
+
     @keyframes pulse {
       0%, 100% { opacity: 0.5; }
       50% { opacity: 1; }
     }
-    
+
     .empty-day {
       text-align: center;
       padding: 30px 12px;
       color: #52525b;
       font-size: 0.8rem;
     }
-    
+
     .empty-day-icon {
       font-size: 1.8rem;
       margin-bottom: 8px;
       opacity: 0.5;
     }
-    
+
     .empty-tasks {
       text-align: center;
       padding: 20px;
       color: #52525b;
       font-size: 0.85rem;
     }
+
+    /* Modal styles */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+
+    .modal-content {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      padding: 24px;
+      max-width: 600px;
+      width: 100%;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .modal-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.5rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #00d4ff 0%, #7c3aed 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .modal-close {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 6px 12px;
+      color: #71717a;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 1.2rem;
+    }
+
+    .modal-close:hover {
+      background: rgba(239, 68, 68, 0.2);
+      color: #f87171;
+    }
+
+    .modal-body {
+      margin-bottom: 20px;
+    }
+
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border-radius: 10px;
+      border: none;
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #7c3aed 0%, #6366f1 100%);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 20px rgba(124, 58, 237, 0.4);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #a1a1aa;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .category-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .category-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 10px 14px;
+    }
+
+    .category-color-circle {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .category-name {
+      flex: 1;
+      font-size: 0.9rem;
+      color: #e4e4e7;
+    }
+
+    .category-delete {
+      background: none;
+      border: none;
+      color: #71717a;
+      cursor: pointer;
+      padding: 4px 8px;
+      font-size: 0.8rem;
+      transition: all 0.2s;
+    }
+
+    .category-delete:hover {
+      color: #ef4444;
+    }
+
+    .category-delete:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    .category-form {
+      display: flex;
+      gap: 10px;
+      padding: 16px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 12px;
+    }
+
+    .category-input {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 8px 12px;
+      color: #e4e4e7;
+      font-size: 0.85rem;
+      outline: none;
+      font-family: inherit;
+    }
+
+    .category-input:focus {
+      border-color: #7c3aed;
+    }
+
+    .color-picker {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .color-option {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: all 0.2s;
+    }
+
+    .color-option:hover {
+      transform: scale(1.1);
+    }
+
+    .color-option.selected {
+      border-color: white;
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+    }
+
+    .category-picker-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      margin-top: 4px;
+      background: #16213e;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 8px;
+      z-index: 100;
+      min-width: 150px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .category-picker-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      transition: all 0.2s;
+    }
+
+    .category-picker-option:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .transfer-options {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .transfer-option {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .transfer-option:hover {
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .transfer-option.selected {
+      border-color: #7c3aed;
+      background: rgba(124, 58, 237, 0.1);
+    }
+
+    .transfer-option input[type="radio"] {
+      accent-color: #7c3aed;
+    }
+
+    .transfer-preview {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 10px;
+      padding: 12px;
+      font-size: 0.85rem;
+      color: #a1a1aa;
+      margin-bottom: 20px;
+    }
+
+    .stats-view {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .stats-summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 30px;
+    }
+
+    .stat-card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 2rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #00d4ff 0%, #7c3aed 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .stat-label {
+      font-size: 0.85rem;
+      color: #71717a;
+      margin-top: 8px;
+    }
+
+    .chart-container {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .chart-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: #e4e4e7;
+      margin-bottom: 20px;
+    }
+
+    .simple-bar-chart {
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      height: 200px;
+      padding: 10px 0;
+    }
+
+    .bar-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .bar {
+      width: 100%;
+      background: linear-gradient(180deg, #7c3aed 0%, #6366f1 100%);
+      border-radius: 6px 6px 0 0;
+      transition: all 0.3s;
+      cursor: pointer;
+    }
+
+    .bar:hover {
+      opacity: 0.8;
+    }
+
+    .bar-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      color: #71717a;
+    }
+
+    .category-stats-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .category-stats-table th {
+      text-align: left;
+      padding: 10px;
+      font-size: 0.8rem;
+      color: #71717a;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .category-stats-table td {
+      padding: 12px 10px;
+      font-size: 0.85rem;
+      color: #e4e4e7;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .category-stats-row {
+      transition: all 0.2s;
+    }
+
+    .category-stats-row:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
   </style>
 </head>
 <body>
   <div id="root"></div>
-  
+
   <script type="text/babel">
     const { useState, useEffect, Fragment } = React;
-    
+
+    // Constants
     const DAYS = [
       { id: 'mon', name: 'Pondělí', short: 'Po' },
       { id: 'tue', name: 'Úterý', short: 'Út' },
@@ -633,11 +1134,20 @@
       { id: 'thu', name: 'Čtvrtek', short: 'Čt' },
       { id: 'fri', name: 'Pátek', short: 'Pá' },
     ];
-    
-    const DEFAULT_TASKS = [
-      { id: 1, title: 'Můj první úkol', scheduledDay: null, duration: 1, order: 0 },
+
+    const DEFAULT_CATEGORIES = [
+      { id: "cat_dev", name: "Vývoj", color: "#7c3aed" },
+      { id: "cat_meet", name: "Meetingy", color: "#10b981" },
+      { id: "cat_admin", name: "Administrativa", color: "#f59e0b" },
+      { id: "cat_plan", name: "Plánování", color: "#06b6d4" },
+      { id: "cat_other", name: "Ostatní", color: "#6b7280" },
     ];
-    
+
+    const COLOR_PALETTE = [
+      "#7c3aed", "#10b981", "#f59e0b", "#06b6d4", "#6b7280",
+      "#ef4444", "#8b5cf6", "#14b8a6", "#f97316", "#3b82f6"
+    ];
+
     const DURATION_OPTIONS = [
       { value: 0.5, label: '30m' },
       { value: 1, label: '1h' },
@@ -648,17 +1158,516 @@
       { value: 6, label: '6h' },
       { value: 8, label: '8h' },
     ];
-    
+
+    const STORAGE_KEY = 'weekly-planner-data';
+
+    // Helper functions
     const formatDuration = (hours) => {
       if (hours < 1) return `${Math.round(hours * 60)} min`;
       if (hours === Math.floor(hours)) return `${hours} hod`;
       return `${hours} hod`;
     };
-    
-    const STORAGE_KEY = 'weekly-planner-tasks';
-    
+
+    // Week helpers using date-fns
+    const getWeekKey = (date) => {
+      const year = date.getFullYear();
+      const weekNum = Math.ceil((((date - new Date(year, 0, 1)) / 86400000) + new Date(year, 0, 1).getDay() + 1) / 7);
+      return `${year}-W${String(weekNum).padStart(2, '0')}`;
+    };
+
+    const getCurrentWeekKey = () => getWeekKey(new Date());
+
+    const parseWeekKey = (weekKey) => {
+      const [year, week] = weekKey.split('-W');
+      return { year: parseInt(year), week: parseInt(week) };
+    };
+
+    const getWeekDates = (weekKey) => {
+      const { year, week } = parseWeekKey(weekKey);
+      const firstDayOfYear = new Date(year, 0, 1);
+      const daysOffset = (week - 1) * 7;
+      const firstDayOfWeek = new Date(year, 0, 1 + daysOffset - firstDayOfYear.getDay() + 1);
+
+      const dates = [];
+      for (let i = 0; i < 5; i++) {
+        const date = new Date(firstDayOfWeek);
+        date.setDate(firstDayOfWeek.getDate() + i);
+        dates.push(date);
+      }
+      return dates;
+    };
+
+    const formatWeekRange = (weekKey) => {
+      const dates = getWeekDates(weekKey);
+      const start = dates[0];
+      const end = dates[4];
+      const months = ['ledna', 'února', 'března', 'dubna', 'května', 'června',
+                      'července', 'srpna', 'září', 'října', 'listopadu', 'prosince'];
+
+      if (start.getMonth() === end.getMonth()) {
+        return `${start.getDate()}. - ${end.getDate()}. ${months[start.getMonth()]} ${start.getFullYear()}`;
+      } else {
+        return `${start.getDate()}. ${months[start.getMonth()]} - ${end.getDate()}. ${months[end.getMonth()]} ${start.getFullYear()}`;
+      }
+    };
+
+    const getNextWeek = (weekKey) => {
+      const { year, week } = parseWeekKey(weekKey);
+      const nextWeek = week + 1;
+      if (nextWeek > 52) {
+        return `${year + 1}-W01`;
+      }
+      return `${year}-W${String(nextWeek).padStart(2, '0')}`;
+    };
+
+    const getPrevWeek = (weekKey) => {
+      const { year, week } = parseWeekKey(weekKey);
+      const prevWeek = week - 1;
+      if (prevWeek < 1) {
+        return `${year - 1}-W52`;
+      }
+      return `${year}-W${String(prevWeek).padStart(2, '0')}`;
+    };
+
+    // Modal Component
+    function Modal({ isOpen, onClose, title, children, footer }) {
+      if (!isOpen) return null;
+
+      return (
+        <div className="modal-overlay" onClick={onClose}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">{title}</h2>
+              <button className="modal-close" onClick={onClose}>✕</button>
+            </div>
+            <div className="modal-body">
+              {children}
+            </div>
+            {footer && <div className="modal-footer">{footer}</div>}
+          </div>
+        </div>
+      );
+    }
+
+    // Category Manager Modal
+    function CategoryManager({ isOpen, onClose, categories, setCategories, tasks }) {
+      const [newCategoryName, setNewCategoryName] = useState('');
+      const [selectedColor, setSelectedColor] = useState(COLOR_PALETTE[0]);
+
+      const addCategory = () => {
+        if (!newCategoryName.trim()) return;
+
+        const newCategory = {
+          id: `cat_${Date.now()}`,
+          name: newCategoryName.trim(),
+          color: selectedColor
+        };
+
+        setCategories([...categories, newCategory]);
+        setNewCategoryName('');
+        setSelectedColor(COLOR_PALETTE[0]);
+      };
+
+      const deleteCategory = (categoryId) => {
+        const isUsed = tasks.some(t => t.categoryId === categoryId);
+        if (isUsed) {
+          alert('Tuto kategorii nelze smazat, protože je používána úkoly.');
+          return;
+        }
+
+        if (confirm('Opravdu chceš smazat tuto kategorii?')) {
+          setCategories(categories.filter(c => c.id !== categoryId));
+        }
+      };
+
+      return (
+        <Modal
+          isOpen={isOpen}
+          onClose={onClose}
+          title="📁 Správa kategorií"
+          footer={
+            <button className="btn btn-secondary" onClick={onClose}>Zavřít</button>
+          }
+        >
+          <div className="category-list">
+            {categories.map(cat => (
+              <div key={cat.id} className="category-item">
+                <div className="category-color-circle" style={{ background: cat.color }} />
+                <span className="category-name">{cat.name}</span>
+                <button
+                  className="category-delete"
+                  onClick={() => deleteCategory(cat.id)}
+                  disabled={tasks.some(t => t.categoryId === cat.id)}
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div className="category-form">
+            <input
+              type="text"
+              className="category-input"
+              placeholder="Název nové kategorie..."
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && addCategory()}
+            />
+          </div>
+
+          <div style={{ marginTop: '12px', padding: '0 16px' }}>
+            <div style={{ fontSize: '0.75rem', color: '#71717a', marginBottom: '8px' }}>Barva:</div>
+            <div className="color-picker">
+              {COLOR_PALETTE.map(color => (
+                <div
+                  key={color}
+                  className={`color-option ${selectedColor === color ? 'selected' : ''}`}
+                  style={{ background: color }}
+                  onClick={() => setSelectedColor(color)}
+                />
+              ))}
+            </div>
+          </div>
+
+          <button
+            className="btn btn-primary"
+            onClick={addCategory}
+            style={{ width: '100%', marginTop: '16px' }}
+          >
+            + Přidat kategorii
+          </button>
+        </Modal>
+      );
+    }
+
+    // Category Picker Component
+    function CategoryPicker({ task, categories, onChange }) {
+      const [isOpen, setIsOpen] = useState(false);
+      const category = categories.find(c => c.id === task.categoryId);
+
+      return (
+        <div style={{ position: 'relative' }}>
+          <div
+            className="task-category-badge"
+            style={{
+              background: category ? `${category.color}30` : 'rgba(255,255,255,0.05)',
+              color: category ? category.color : '#71717a'
+            }}
+            onClick={() => setIsOpen(!isOpen)}
+          >
+            {category && <div className="category-dot" style={{ background: category.color }} />}
+            {category ? category.name : 'Bez kategorie'}
+          </div>
+
+          {isOpen && (
+            <>
+              <div
+                style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99 }}
+                onClick={() => setIsOpen(false)}
+              />
+              <div className="category-picker-dropdown">
+                <div
+                  className="category-picker-option"
+                  onClick={() => {
+                    onChange(null);
+                    setIsOpen(false);
+                  }}
+                >
+                  <div className="category-dot" style={{ background: '#52525b' }} />
+                  Bez kategorie
+                </div>
+                {categories.map(cat => (
+                  <div
+                    key={cat.id}
+                    className="category-picker-option"
+                    onClick={() => {
+                      onChange(cat.id);
+                      setIsOpen(false);
+                    }}
+                  >
+                    <div className="category-dot" style={{ background: cat.color }} />
+                    {cat.name}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      );
+    }
+
+    // Transfer Tasks Modal
+    function TransferTasksModal({ isOpen, onClose, prevWeekTasks, onTransfer }) {
+      const [mode, setMode] = useState('all');
+      const [selectedTasks, setSelectedTasks] = useState([]);
+
+      const getFilteredTasks = () => {
+        if (mode === 'all') return prevWeekTasks;
+        if (mode === 'unscheduled') return prevWeekTasks.filter(t => !t.scheduledDay);
+        if (mode === 'incomplete') return prevWeekTasks.filter(t => !t.completed);
+        if (mode === 'manual') return prevWeekTasks.filter(t => selectedTasks.includes(t.id));
+        return [];
+      };
+
+      const handleTransfer = () => {
+        const tasksToTransfer = getFilteredTasks();
+        onTransfer(tasksToTransfer);
+        onClose();
+      };
+
+      const filteredCount = getFilteredTasks().length;
+
+      return (
+        <Modal
+          isOpen={isOpen}
+          onClose={onClose}
+          title="🔄 Přenést úkoly z minulého týdne"
+          footer={
+            <>
+              <button className="btn btn-secondary" onClick={onClose}>Začít s prázdným týdnem</button>
+              <button className="btn btn-primary" onClick={handleTransfer}>
+                Přenést ({filteredCount})
+              </button>
+            </>
+          }
+        >
+          <div className="transfer-options">
+            <div
+              className={`transfer-option ${mode === 'all' ? 'selected' : ''}`}
+              onClick={() => setMode('all')}
+            >
+              <input type="radio" checked={mode === 'all'} readOnly />
+              <div>
+                <div style={{ fontWeight: 600, marginBottom: '4px' }}>Přenést všechny</div>
+                <div style={{ fontSize: '0.8rem', color: '#71717a' }}>
+                  Zkopíruje všechny úkoly ({prevWeekTasks.length})
+                </div>
+              </div>
+            </div>
+
+            <div
+              className={`transfer-option ${mode === 'unscheduled' ? 'selected' : ''}`}
+              onClick={() => setMode('unscheduled')}
+            >
+              <input type="radio" checked={mode === 'unscheduled'} readOnly />
+              <div>
+                <div style={{ fontWeight: 600, marginBottom: '4px' }}>Jen nezařazené</div>
+                <div style={{ fontSize: '0.8rem', color: '#71717a' }}>
+                  Úkoly, které nebyly naplánované ({prevWeekTasks.filter(t => !t.scheduledDay).length})
+                </div>
+              </div>
+            </div>
+
+            <div
+              className={`transfer-option ${mode === 'incomplete' ? 'selected' : ''}`}
+              onClick={() => setMode('incomplete')}
+            >
+              <input type="radio" checked={mode === 'incomplete'} readOnly />
+              <div>
+                <div style={{ fontWeight: 600, marginBottom: '4px' }}>Jen nedokončené</div>
+                <div style={{ fontSize: '0.8rem', color: '#71717a' }}>
+                  Úkoly, které nebyly dokončeny ({prevWeekTasks.filter(t => !t.completed).length})
+                </div>
+              </div>
+            </div>
+
+            <div
+              className={`transfer-option ${mode === 'manual' ? 'selected' : ''}`}
+              onClick={() => setMode('manual')}
+            >
+              <input type="radio" checked={mode === 'manual'} readOnly />
+              <div>
+                <div style={{ fontWeight: 600, marginBottom: '4px' }}>Vybrat ručně</div>
+                <div style={{ fontSize: '0.8rem', color: '#71717a' }}>
+                  Vyber konkrétní úkoly k přenosu
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {mode === 'manual' && (
+            <div style={{ marginTop: '16px', maxHeight: '300px', overflowY: 'auto' }}>
+              {prevWeekTasks.map(task => (
+                <div key={task.id} style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedTasks.includes(task.id)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedTasks([...selectedTasks, task.id]);
+                      } else {
+                        setSelectedTasks(selectedTasks.filter(id => id !== task.id));
+                      }
+                    }}
+                  />
+                  <span style={{ fontSize: '0.85rem' }}>{task.title}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="transfer-preview">
+            📋 Bude přeneseno: {filteredCount} {filteredCount === 1 ? 'úkol' : filteredCount < 5 ? 'úkoly' : 'úkolů'}
+          </div>
+        </Modal>
+      );
+    }
+
+    // Statistics View
+    function StatisticsView({ isOpen, onClose, data, categories }) {
+      const allWeeks = Object.keys(data.weeks).sort();
+
+      const getTotalHours = () => {
+        return allWeeks.reduce((total, weekKey) => {
+          const weekTasks = data.weeks[weekKey]?.tasks || [];
+          return total + weekTasks.reduce((sum, t) => sum + (t.duration || 1), 0);
+        }, 0);
+      };
+
+      const getAveragePerWeek = () => {
+        if (allWeeks.length === 0) return 0;
+        return (getTotalHours() / allWeeks.length).toFixed(1);
+      };
+
+      const getCompletedCount = () => {
+        return allWeeks.reduce((total, weekKey) => {
+          const weekTasks = data.weeks[weekKey]?.tasks || [];
+          return total + weekTasks.filter(t => t.completed).length;
+        }, 0);
+      };
+
+      const getHoursByCategory = () => {
+        const categoryHours = {};
+
+        allWeeks.forEach(weekKey => {
+          const weekTasks = data.weeks[weekKey]?.tasks || [];
+          weekTasks.forEach(task => {
+            const catId = task.categoryId || 'none';
+            if (!categoryHours[catId]) {
+              categoryHours[catId] = 0;
+            }
+            categoryHours[catId] += task.duration || 1;
+          });
+        });
+
+        const total = Object.values(categoryHours).reduce((sum, h) => sum + h, 0);
+
+        return Object.entries(categoryHours).map(([catId, hours]) => {
+          const category = categories.find(c => c.id === catId);
+          return {
+            id: catId,
+            name: category ? category.name : 'Bez kategorie',
+            color: category ? category.color : '#6b7280',
+            hours,
+            percentage: total > 0 ? ((hours / total) * 100).toFixed(1) : 0
+          };
+        }).sort((a, b) => b.hours - a.hours);
+      };
+
+      const getWeeklyData = () => {
+        return allWeeks.slice(-8).map(weekKey => {
+          const weekTasks = data.weeks[weekKey]?.tasks || [];
+          const total = weekTasks.reduce((sum, t) => sum + (t.duration || 1), 0);
+          const { week } = parseWeekKey(weekKey);
+          return { week: `T${week}`, hours: total };
+        });
+      };
+
+      const totalHours = getTotalHours();
+      const avgPerWeek = getAveragePerWeek();
+      const completedCount = getCompletedCount();
+      const categoryStats = getHoursByCategory();
+      const weeklyData = getWeeklyData();
+      const maxWeekHours = Math.max(...weeklyData.map(d => d.hours), 1);
+
+      return (
+        <Modal
+          isOpen={isOpen}
+          onClose={onClose}
+          title="📊 Statistiky"
+          footer={
+            <button className="btn btn-secondary" onClick={onClose}>Zavřít</button>
+          }
+        >
+          <div className="stats-view">
+            <div className="stats-summary">
+              <div className="stat-card">
+                <div className="stat-value">{totalHours.toFixed(1)}</div>
+                <div className="stat-label">Celkem hodin</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-value">{avgPerWeek}</div>
+                <div className="stat-label">Průměr/týden</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-value">{completedCount}</div>
+                <div className="stat-label">Dokončeno úkolů</div>
+              </div>
+            </div>
+
+            <div className="chart-container">
+              <div className="chart-title">Hodiny za týden</div>
+              <div className="simple-bar-chart">
+                {weeklyData.map((item, idx) => (
+                  <div key={idx} className="bar-item">
+                    <div
+                      className="bar"
+                      style={{ height: `${(item.hours / maxWeekHours) * 100}%` }}
+                      title={`${item.hours.toFixed(1)} hod`}
+                    />
+                    <div className="bar-label">{item.week}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="chart-container">
+              <div className="chart-title">Rozložení podle kategorií</div>
+              <table className="category-stats-table">
+                <thead>
+                  <tr>
+                    <th>Kategorie</th>
+                    <th>Hodiny</th>
+                    <th>%</th>
+                    <th>Průměr/týden</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {categoryStats.map(stat => (
+                    <tr key={stat.id} className="category-stats-row">
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div className="category-dot" style={{ background: stat.color }} />
+                          {stat.name}
+                        </div>
+                      </td>
+                      <td>{stat.hours.toFixed(1)} hod</td>
+                      <td>{stat.percentage}%</td>
+                      <td>{(stat.hours / (allWeeks.length || 1)).toFixed(1)} hod</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </Modal>
+      );
+    }
+
+    // Main App Component
     function WeeklyPlanner() {
-      const [tasks, setTasks] = useState([]);
+      const [data, setData] = useState({
+        categories: DEFAULT_CATEGORIES,
+        weeks: {},
+        settings: {
+          hoursPerDay: 8,
+          defaultDuration: 1,
+          showCompletedTasks: true
+        }
+      });
+
+      const [currentWeekKey, setCurrentWeekKey] = useState(getCurrentWeekKey());
       const [isLoaded, setIsLoaded] = useState(false);
       const [saveStatus, setSaveStatus] = useState('');
       const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -667,80 +1676,125 @@
       const [dragOverIndex, setDragOverIndex] = useState(null);
       const [editingDuration, setEditingDuration] = useState(null);
       const [customDuration, setCustomDuration] = useState('');
-      
-      // Load tasks from localStorage
+
+      const [showCategoryManager, setShowCategoryManager] = useState(false);
+      const [showTransferModal, setShowTransferModal] = useState(false);
+      const [showStatistics, setShowStatistics] = useState(false);
+
+      // Load data from localStorage
       useEffect(() => {
         try {
           const saved = localStorage.getItem(STORAGE_KEY);
           if (saved) {
-            setTasks(JSON.parse(saved));
-          } else {
-            setTasks(DEFAULT_TASKS);
+            const parsed = JSON.parse(saved);
+            setData({
+              categories: parsed.categories || DEFAULT_CATEGORIES,
+              weeks: parsed.weeks || {},
+              settings: parsed.settings || data.settings
+            });
           }
         } catch (e) {
-          setTasks(DEFAULT_TASKS);
+          console.error('Failed to load data', e);
         }
         setIsLoaded(true);
       }, []);
-      
-      // Save tasks to localStorage
+
+      // Save data to localStorage
       useEffect(() => {
         if (!isLoaded) return;
         try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
           setSaveStatus('✓ Uloženo');
           const timer = setTimeout(() => setSaveStatus(''), 2000);
           return () => clearTimeout(timer);
         } catch (e) {
-          console.log('Could not save');
+          console.error('Failed to save data', e);
         }
-      }, [tasks, isLoaded]);
-      
-      const getTasksForDay = (dayId) => 
-        tasks
+      }, [data, isLoaded]);
+
+      // Check if week exists, if not show transfer modal
+      useEffect(() => {
+        if (!isLoaded) return;
+        if (!data.weeks[currentWeekKey]) {
+          const prevWeek = getPrevWeek(currentWeekKey);
+          if (data.weeks[prevWeek] && data.weeks[prevWeek].tasks.length > 0) {
+            setShowTransferModal(true);
+          } else {
+            // Create empty week
+            setData(prev => ({
+              ...prev,
+              weeks: {
+                ...prev.weeks,
+                [currentWeekKey]: { tasks: [] }
+              }
+            }));
+          }
+        }
+      }, [currentWeekKey, isLoaded]);
+
+      const currentTasks = data.weeks[currentWeekKey]?.tasks || [];
+
+      const updateTasks = (newTasks) => {
+        setData(prev => ({
+          ...prev,
+          weeks: {
+            ...prev.weeks,
+            [currentWeekKey]: { tasks: newTasks }
+          }
+        }));
+      };
+
+      const getTasksForDay = (dayId) =>
+        currentTasks
           .filter(t => t.scheduledDay === dayId)
           .sort((a, b) => a.order - b.order);
-      
-      const getTotalHours = (dayId) => 
+
+      const getTotalHours = (dayId) =>
         getTasksForDay(dayId).reduce((sum, t) => sum + (t.duration || 1), 0);
-      
+
       const addTask = () => {
         if (!newTaskTitle.trim()) return;
-        setTasks([...tasks, {
-          id: Date.now(),
+
+        const newTask = {
+          id: `task_${Date.now()}`,
           title: newTaskTitle.trim(),
+          categoryId: null,
+          duration: data.settings.defaultDuration,
           scheduledDay: null,
-          duration: 1,
-          order: 0
-        }]);
+          order: 0,
+          completed: false,
+          createdAt: new Date().toISOString()
+        };
+
+        updateTasks([...currentTasks, newTask]);
         setNewTaskTitle('');
       };
-      
+
       const handleDragStart = (e, task) => {
         setDraggedTask(task);
         e.dataTransfer.effectAllowed = 'move';
       };
-      
+
       const handleDragOver = (e, dayId, index = null) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
         setDragOverDay(dayId);
         setDragOverIndex(index);
       };
-      
+
       const handleDragLeave = () => {
         setDragOverDay(null);
         setDragOverIndex(null);
       };
-      
+
       const handleDropOnDay = (e, dayId, dropIndex = null) => {
         e.preventDefault();
         if (!draggedTask) return;
-        
+
         const dayTasks = getTasksForDay(dayId).filter(t => t.id !== draggedTask.id);
         const insertIndex = dropIndex !== null ? dropIndex : dayTasks.length;
-        
-        const reorderedTasks = tasks.map(t => {
+
+        const reorderedTasks = currentTasks.map(t => {
           if (t.id === draggedTask.id) {
             return { ...t, scheduledDay: dayId, order: insertIndex };
           }
@@ -754,19 +1808,19 @@
           }
           return t;
         });
-        
-        setTasks(reorderedTasks);
+
+        updateTasks(reorderedTasks);
         setDraggedTask(null);
         setDragOverDay(null);
         setDragOverIndex(null);
       };
-      
+
       const handleDropOnBacklog = (e) => {
         e.preventDefault();
         if (!draggedTask) return;
-        
-        setTasks(tasks.map(t => 
-          t.id === draggedTask.id 
+
+        updateTasks(currentTasks.map(t =>
+          t.id === draggedTask.id
             ? { ...t, scheduledDay: null, order: 0 }
             : t
         ));
@@ -774,66 +1828,123 @@
         setDragOverDay(null);
         setDragOverIndex(null);
       };
-      
-      const updateDuration = (taskId, duration) => {
-        setTasks(tasks.map(t => 
+
+      const updateTaskDuration = (taskId, duration) => {
+        updateTasks(currentTasks.map(t =>
           t.id === taskId ? { ...t, duration } : t
         ));
         setEditingDuration(null);
         setCustomDuration('');
       };
-      
+
       const handleCustomDuration = (taskId) => {
         const value = parseFloat(customDuration);
         if (!isNaN(value) && value > 0 && value <= 12) {
-          updateDuration(taskId, value);
+          updateTaskDuration(taskId, value);
         }
       };
-      
+
       const startEditing = (taskId, currentDuration) => {
         setEditingDuration(taskId);
         setCustomDuration(currentDuration.toString());
       };
-      
+
       const deleteTask = (taskId) => {
-        setTasks(tasks.filter(t => t.id !== taskId));
+        if (confirm('Opravdu chceš smazat tento úkol?')) {
+          updateTasks(currentTasks.filter(t => t.id !== taskId));
+        }
       };
-      
+
       const removeFromSchedule = (taskId) => {
-        setTasks(tasks.map(t => 
-          t.id === taskId 
+        updateTasks(currentTasks.map(t =>
+          t.id === taskId
             ? { ...t, scheduledDay: null, order: 0 }
             : t
         ));
       };
-      
+
+      const toggleCompleted = (taskId) => {
+        updateTasks(currentTasks.map(t =>
+          t.id === taskId ? { ...t, completed: !t.completed } : t
+        ));
+      };
+
+      const updateTaskCategory = (taskId, categoryId) => {
+        updateTasks(currentTasks.map(t =>
+          t.id === taskId ? { ...t, categoryId } : t
+        ));
+      };
+
       const clearAllTasks = () => {
-        if (confirm('Opravdu chceš smazat všechny úkoly?')) {
-          setTasks([]);
+        if (confirm('Opravdu chceš smazat všechny úkoly tohoto týdne?')) {
+          updateTasks([]);
         }
       };
-      
+
       const resetWeek = () => {
         if (confirm('Odebrat všechny úkoly z rozvrhu? (úkoly zůstanou v seznamu)')) {
-          setTasks(tasks.map(t => ({ ...t, scheduledDay: null, order: 0 })));
+          updateTasks(currentTasks.map(t => ({ ...t, scheduledDay: null, order: 0 })));
         }
       };
-      
-      const getHeightForDuration = (duration) => {
-        const baseHeight = 56;
-        const heightPerHour = 44;
-        return baseHeight + (duration - 0.5) * heightPerHour;
+
+      const handleTransferTasks = (tasksToTransfer) => {
+        const newTasks = tasksToTransfer.map(task => ({
+          ...task,
+          id: `task_${Date.now()}_${Math.random()}`,
+          scheduledDay: null,
+          order: 0,
+          completed: false,
+          createdAt: new Date().toISOString()
+        }));
+
+        setData(prev => ({
+          ...prev,
+          weeks: {
+            ...prev.weeks,
+            [currentWeekKey]: { tasks: newTasks }
+          }
+        }));
       };
-      
+
+      const weekDates = getWeekDates(currentWeekKey);
+      const { week } = parseWeekKey(currentWeekKey);
+
       return (
         <div className="app-container">
           <div className="planner-header">
             <h1 className="planner-title">📅 Týdenní Plánovač</h1>
           </div>
-          
+
+          <div className="planner-header">
+            <div className="week-navigation">
+              <button className="week-nav-btn" onClick={() => setCurrentWeekKey(getPrevWeek(currentWeekKey))}>
+                ← Předchozí
+              </button>
+              <div className="week-display">
+                <div className="week-range">{formatWeekRange(currentWeekKey)}</div>
+                <div className="week-number">Týden {week}</div>
+              </div>
+              <button className="week-nav-btn" onClick={() => setCurrentWeekKey(getNextWeek(currentWeekKey))}>
+                Další →
+              </button>
+              <button className="week-nav-btn" onClick={() => setCurrentWeekKey(getCurrentWeekKey())}>
+                Dnes
+              </button>
+            </div>
+          </div>
+
           <div className="planner-header">
             {saveStatus && <span className="save-status">{saveStatus}</span>}
             <div className="header-actions">
+              <button className="header-btn primary" onClick={() => setShowStatistics(true)}>
+                📊 Statistiky
+              </button>
+              <button className="header-btn primary" onClick={() => setShowCategoryManager(true)}>
+                📁 Kategorie
+              </button>
+              <button className="header-btn" onClick={() => setShowTransferModal(true)}>
+                🔄 Přenést úkoly
+              </button>
               <button className="header-btn" onClick={resetWeek}>
                 ↺ Vyčistit týden
               </button>
@@ -842,16 +1953,16 @@
               </button>
             </div>
           </div>
-          
+
           <div className="main-container">
-            <div 
+            <div
               className={`backlog-panel ${draggedTask?.scheduledDay ? 'can-drop' : ''} ${dragOverDay === 'backlog' ? 'drag-over' : ''}`}
               onDragOver={(e) => { if (draggedTask?.scheduledDay) { e.preventDefault(); setDragOverDay('backlog'); }}}
               onDragLeave={handleDragLeave}
               onDrop={(e) => { if (draggedTask?.scheduledDay) handleDropOnBacklog(e); }}
             >
-              <div className="backlog-title">Všechny úkoly</div>
-              
+              <div className="backlog-title">Všechny úkoly ({currentTasks.length})</div>
+
               <div className="add-task-form">
                 <input
                   type="text"
@@ -863,24 +1974,32 @@
                 />
                 <button className="add-task-btn" onClick={addTask}>+</button>
               </div>
-              
+
               <div>
-                {tasks.map(task => (
+                {currentTasks.map(task => (
                   <div
                     key={task.id}
-                    className={`task-card ${draggedTask?.id === task.id ? 'dragging' : ''} ${task.scheduledDay ? 'scheduled' : ''}`}
+                    className={`task-card ${draggedTask?.id === task.id ? 'dragging' : ''} ${task.scheduledDay ? 'scheduled' : ''} ${task.completed ? 'completed' : ''}`}
                     draggable={editingDuration !== task.id}
                     onDragStart={(e) => editingDuration !== task.id && handleDragStart(e, task)}
                     onDragEnd={() => setDraggedTask(null)}
                   >
-                    <button 
+                    <button
                       className="task-delete-btn"
                       onClick={() => deleteTask(task.id)}
                     >
                       ✕
                     </button>
-                    <div className="task-title">{task.title}</div>
-                    
+                    <div className="task-title">
+                      <input
+                        type="checkbox"
+                        className="task-checkbox"
+                        checked={task.completed}
+                        onChange={() => toggleCompleted(task.id)}
+                      />
+                      <span>{task.title}</span>
+                    </div>
+
                     {editingDuration === task.id ? (
                       <div className="duration-editor">
                         <div className="duration-presets">
@@ -888,7 +2007,7 @@
                             <button
                               key={opt.value}
                               className={`duration-preset ${task.duration === opt.value ? 'selected' : ''}`}
-                              onClick={() => updateDuration(task.id, opt.value)}
+                              onClick={() => updateTaskDuration(task.id, opt.value)}
                             >
                               {opt.label}
                             </button>
@@ -908,7 +2027,7 @@
                             step="0.25"
                             autoFocus
                           />
-                          <button 
+                          <button
                             className="duration-custom-btn"
                             onClick={() => handleCustomDuration(task.id)}
                           >
@@ -918,12 +2037,17 @@
                       </div>
                     ) : (
                       <div className="task-meta">
-                        <span 
+                        <span
                           className="task-duration-badge"
                           onClick={() => startEditing(task.id, task.duration)}
                         >
                           ⏱ {formatDuration(task.duration)}
                         </span>
+                        <CategoryPicker
+                          task={task}
+                          categories={data.categories}
+                          onChange={(categoryId) => updateTaskCategory(task.id, categoryId)}
+                        />
                         {task.scheduledDay && (
                           <Fragment>
                             <span className="task-scheduled-badge">✓ V plánu</span>
@@ -936,21 +2060,22 @@
                     )}
                   </div>
                 ))}
-                
-                {tasks.length === 0 && (
+
+                {currentTasks.length === 0 && (
                   <div className="empty-tasks">
                     Přidej první úkol ☝️
                   </div>
                 )}
               </div>
             </div>
-            
+
             <div className="calendar-grid">
-              {DAYS.map(day => {
+              {DAYS.map((day, dayIndex) => {
                 const dayTasks = getTasksForDay(day.id);
                 const totalHours = getTotalHours(day.id);
-                const isOver = totalHours > 8;
-                
+                const isOver = totalHours > data.settings.hoursPerDay;
+                const dayDate = weekDates[dayIndex];
+
                 return (
                   <div
                     key={day.id}
@@ -961,13 +2086,16 @@
                   >
                     <div className="day-header">
                       <div className="day-name">{day.name}</div>
+                      <div className="day-date">
+                        {dayDate.getDate()}.{dayDate.getMonth() + 1}.
+                      </div>
                       <div className="day-hours">
                         <span className={isOver ? 'day-hours-over' : 'day-hours-value'}>
-                          {totalHours}
-                        </span> / 8 hod
+                          {totalHours.toFixed(1)}
+                        </span> / {data.settings.hoursPerDay} hod
                       </div>
                     </div>
-                    
+
                     <div className="day-tasks">
                       {dayTasks.length === 0 ? (
                         <div className="empty-day">
@@ -975,53 +2103,80 @@
                           Přetáhni sem
                         </div>
                       ) : (
-                        dayTasks.map((task, index) => (
-                          <Fragment key={task.id}>
-                            {dragOverDay === day.id && dragOverIndex === index && draggedTask?.id !== task.id && (
-                              <div className="drop-indicator" />
-                            )}
-                            <div
-                              className={`scheduled-task ${draggedTask?.id === task.id ? 'dragging' : ''}`}
-                              style={{ minHeight: getHeightForDuration(task.duration) }}
-                              draggable
-                              onDragStart={(e) => handleDragStart(e, task)}
-                              onDragEnd={() => setDraggedTask(null)}
-                              onDragOver={(e) => handleDragOver(e, day.id, index)}
-                              onDrop={(e) => { e.stopPropagation(); handleDropOnDay(e, day.id, index); }}
-                            >
-                              <span className="scheduled-task-order">{index + 1}</span>
-                              <button 
-                                className="scheduled-task-remove"
-                                onClick={(e) => { e.stopPropagation(); removeFromSchedule(task.id); }}
-                                title="Odebrat z rozvrhu"
-                              >
-                                ✕
-                              </button>
-                              <div className="scheduled-task-title">{task.title}</div>
-                              
-                              {editingDuration === task.id ? (
-                                <div className="duration-selector">
-                                  {DURATION_OPTIONS.map(opt => (
-                                    <button
-                                      key={opt.value}
-                                      className={`duration-option ${task.duration === opt.value ? 'selected' : ''}`}
-                                      onClick={(e) => { e.stopPropagation(); updateDuration(task.id, opt.value); }}
-                                    >
-                                      {opt.label}
-                                    </button>
-                                  ))}
-                                </div>
-                              ) : (
-                                <div 
-                                  className="scheduled-task-duration"
-                                  onClick={() => startEditing(task.id, task.duration)}
-                                >
-                                  ⏱ {formatDuration(task.duration)}
-                                </div>
+                        dayTasks.map((task, index) => {
+                          const category = data.categories.find(c => c.id === task.categoryId);
+
+                          return (
+                            <Fragment key={task.id}>
+                              {dragOverDay === day.id && dragOverIndex === index && draggedTask?.id !== task.id && (
+                                <div className="drop-indicator" />
                               )}
-                            </div>
-                          </Fragment>
-                        ))
+                              <div
+                                className={`scheduled-task ${draggedTask?.id === task.id ? 'dragging' : ''} ${task.completed ? 'completed' : ''}`}
+                                style={{
+                                  minHeight: 56 + (task.duration - 0.5) * 44
+                                }}
+                                draggable
+                                onDragStart={(e) => handleDragStart(e, task)}
+                                onDragEnd={() => setDraggedTask(null)}
+                                onDragOver={(e) => handleDragOver(e, day.id, index)}
+                                onDrop={(e) => { e.stopPropagation(); handleDropOnDay(e, day.id, index); }}
+                              >
+                                <div style={{
+                                  position: 'absolute',
+                                  left: 0,
+                                  top: 0,
+                                  bottom: 0,
+                                  width: '4px',
+                                  background: category ? category.color : 'linear-gradient(180deg, #7c3aed 0%, #6366f1 100%)'
+                                }} />
+
+                                <span className="scheduled-task-order">{index + 1}</span>
+                                <button
+                                  className="scheduled-task-remove"
+                                  onClick={(e) => { e.stopPropagation(); removeFromSchedule(task.id); }}
+                                  title="Odebrat z rozvrhu"
+                                >
+                                  ✕
+                                </button>
+
+                                <div className="scheduled-task-header">
+                                  <input
+                                    type="checkbox"
+                                    className="task-checkbox"
+                                    checked={task.completed}
+                                    onChange={() => toggleCompleted(task.id)}
+                                    style={{ marginLeft: '8px' }}
+                                  />
+                                  <div className={`scheduled-task-title ${task.completed ? 'completed' : ''}`}>
+                                    {task.title}
+                                  </div>
+                                </div>
+
+                                {editingDuration === task.id ? (
+                                  <div className="duration-selector">
+                                    {DURATION_OPTIONS.map(opt => (
+                                      <button
+                                        key={opt.value}
+                                        className={`duration-option ${task.duration === opt.value ? 'selected' : ''}`}
+                                        onClick={(e) => { e.stopPropagation(); updateTaskDuration(task.id, opt.value); }}
+                                      >
+                                        {opt.label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div
+                                    className="scheduled-task-duration"
+                                    onClick={() => startEditing(task.id, task.duration)}
+                                  >
+                                    ⏱ {formatDuration(task.duration)}
+                                  </div>
+                                )}
+                              </div>
+                            </Fragment>
+                          );
+                        })
                       )}
                       {dragOverDay === day.id && dragOverIndex === dayTasks.length && dayTasks.length > 0 && (
                         <div className="drop-indicator" />
@@ -1032,10 +2187,32 @@
               })}
             </div>
           </div>
+
+          <CategoryManager
+            isOpen={showCategoryManager}
+            onClose={() => setShowCategoryManager(false)}
+            categories={data.categories}
+            setCategories={(newCategories) => setData(prev => ({ ...prev, categories: newCategories }))}
+            tasks={currentTasks}
+          />
+
+          <TransferTasksModal
+            isOpen={showTransferModal}
+            onClose={() => setShowTransferModal(false)}
+            prevWeekTasks={data.weeks[getPrevWeek(currentWeekKey)]?.tasks || []}
+            onTransfer={handleTransferTasks}
+          />
+
+          <StatisticsView
+            isOpen={showStatistics}
+            onClose={() => setShowStatistics(false)}
+            data={data}
+            categories={data.categories}
+          />
         </div>
       );
     }
-    
+
     ReactDOM.createRoot(document.getElementById('root')).render(<WeeklyPlanner />);
   </script>
 </body>
