@@ -1251,6 +1251,197 @@
       flex-wrap: wrap;
       margin-top: 4px;
     }
+
+    /* Month view styles */
+    .view-switcher {
+      display: flex;
+      gap: 4px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 4px;
+    }
+
+    .view-switcher-btn {
+      background: transparent;
+      border: none;
+      border-radius: 8px;
+      padding: 6px 16px;
+      color: #a1a1aa;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+      font-weight: 500;
+    }
+
+    .view-switcher-btn:hover {
+      color: #e4e4e7;
+    }
+
+    .view-switcher-btn.active {
+      background: rgba(124, 58, 237, 0.3);
+      color: #c4b5fd;
+    }
+
+    .month-view-container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .month-header {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 20px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+
+    .month-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #e4e4e7;
+      min-width: 200px;
+      text-align: center;
+    }
+
+    .month-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      padding: 16px;
+    }
+
+    .month-grid-header {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 8px;
+      margin-bottom: 8px;
+      padding: 0 16px;
+    }
+
+    .month-weekday {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #a1a1aa;
+      text-align: center;
+      padding: 8px 0;
+    }
+
+    .month-day-cell {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 8px;
+      min-height: 120px;
+      transition: all 0.2s;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .month-day-cell:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(124, 58, 237, 0.3);
+    }
+
+    .month-day-cell.other-month {
+      opacity: 0.3;
+    }
+
+    .month-day-cell.today {
+      border-color: #00d4ff;
+      background: rgba(0, 212, 255, 0.05);
+    }
+
+    .month-day-number {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #e4e4e7;
+      margin-bottom: 6px;
+    }
+
+    .month-day-cell.other-month .month-day-number {
+      color: #52525b;
+    }
+
+    .month-day-tasks {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .month-task-item {
+      background: linear-gradient(135deg, rgba(124, 58, 237, 0.2) 0%, rgba(99, 102, 241, 0.15) 100%);
+      border-left: 3px solid;
+      border-radius: 4px;
+      padding: 4px 6px;
+      font-size: 0.7rem;
+      color: #e4e4e7;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+
+    .month-task-item:hover {
+      background: linear-gradient(135deg, rgba(124, 58, 237, 0.3) 0%, rgba(99, 102, 241, 0.25) 100%);
+      transform: scale(1.02);
+      z-index: 10;
+    }
+
+    .month-task-item.completed {
+      opacity: 0.5;
+      text-decoration: line-through;
+    }
+
+    .month-more-tasks {
+      font-size: 0.65rem;
+      color: #71717a;
+      text-align: center;
+      padding: 2px;
+      cursor: pointer;
+    }
+
+    .month-more-tasks:hover {
+      color: #a1a1aa;
+    }
+
+    @media (max-width: 1200px) {
+      .month-grid {
+        gap: 6px;
+        padding: 12px;
+      }
+      .month-day-cell {
+        min-height: 100px;
+        padding: 6px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .month-grid {
+        gap: 4px;
+        padding: 8px;
+      }
+      .month-day-cell {
+        min-height: 80px;
+        padding: 4px;
+      }
+      .month-task-item {
+        font-size: 0.65rem;
+        padding: 3px 4px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -1406,6 +1597,72 @@
         return `${year - 1}-W52`;
       }
       return `${year}-W${String(prevWeek).padStart(2, '0')}`;
+    };
+
+    // Month helpers
+    const getMonthKey = (date) => {
+      const year = date.getFullYear();
+      const month = date.getMonth() + 1;
+      return `${year}-${String(month).padStart(2, '0')}`;
+    };
+
+    const getCurrentMonthKey = () => getMonthKey(new Date());
+
+    const parseMonthKey = (monthKey) => {
+      const [year, month] = monthKey.split('-');
+      return { year: parseInt(year), month: parseInt(month) };
+    };
+
+    const formatMonthName = (monthKey) => {
+      const { year, month } = parseMonthKey(monthKey);
+      const months = ['Leden', 'Únor', 'Březen', 'Duben', 'Květen', 'Červen',
+                      'Červenec', 'Srpen', 'Září', 'Říjen', 'Listopad', 'Prosinec'];
+      return `${months[month - 1]} ${year}`;
+    };
+
+    const getNextMonth = (monthKey) => {
+      const { year, month } = parseMonthKey(monthKey);
+      if (month === 12) {
+        return `${year + 1}-01`;
+      }
+      return `${year}-${String(month + 1).padStart(2, '0')}`;
+    };
+
+    const getPrevMonth = (monthKey) => {
+      const { year, month } = parseMonthKey(monthKey);
+      if (month === 1) {
+        return `${year - 1}-12`;
+      }
+      return `${year}-${String(month - 1).padStart(2, '0')}`;
+    };
+
+    // Get all days in a month grid (including prev/next month days for full weeks)
+    const getMonthDays = (monthKey) => {
+      const { year, month } = parseMonthKey(monthKey);
+      const firstDay = new Date(year, month - 1, 1);
+      const lastDay = new Date(year, month, 0);
+
+      // Start from Monday of the first week
+      const startDate = new Date(firstDay);
+      const dayOfWeek = firstDay.getDay();
+      const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      startDate.setDate(startDate.getDate() - daysToSubtract);
+
+      // Get all days for the grid (6 weeks = 42 days to ensure consistent height)
+      const days = [];
+      for (let i = 0; i < 42; i++) {
+        const date = new Date(startDate);
+        date.setDate(startDate.getDate() + i);
+        days.push({
+          date: date,
+          dayNumber: date.getDate(),
+          isCurrentMonth: date.getMonth() === month - 1,
+          isToday: date.toDateString() === new Date().toDateString(),
+          weekKey: getWeekKey(date),
+          dateString: date.toISOString().split('T')[0]
+        });
+      }
+      return days;
     };
 
     // iCal Export helpers
@@ -2105,6 +2362,105 @@ END:VCALENDAR`;
       );
     }
 
+    // MonthView Component
+    function MonthView({ data, categories, onDayClick, currentMonthKey, onPrevMonth, onNextMonth, onToday }) {
+      const monthDays = getMonthDays(currentMonthKey);
+      const weekdays = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne'];
+
+      // Get tasks for a specific date
+      const getTasksForDate = (dateString, weekKey) => {
+        const weekData = data.weeks[weekKey];
+        if (!weekData || !weekData.tasks) return [];
+
+        const date = new Date(dateString);
+        const dayOfWeek = date.getDay();
+        let dayId = null;
+
+        // Map day of week to DAYS array (Monday = 1, ..., Friday = 5)
+        if (dayOfWeek === 1) dayId = 'mon';
+        else if (dayOfWeek === 2) dayId = 'tue';
+        else if (dayOfWeek === 3) dayId = 'wed';
+        else if (dayOfWeek === 4) dayId = 'thu';
+        else if (dayOfWeek === 5) dayId = 'fri';
+
+        if (!dayId) return []; // Weekend - no tasks
+
+        const tasksForDay = [];
+        weekData.tasks.forEach(task => {
+          const instances = getTaskInstances(task);
+          if (instances[dayId]) {
+            const category = categories.find(c => c.id === task.categoryId);
+            tasksForDay.push({
+              ...task,
+              instanceData: instances[dayId],
+              categoryColor: category?.color || '#6b7280'
+            });
+          }
+        });
+
+        return tasksForDay.sort((a, b) => a.instanceData.order - b.instanceData.order);
+      };
+
+      return (
+        <div className="month-view-container">
+          <div className="month-header">
+            <button className="week-nav-btn" onClick={onPrevMonth}>
+              ← Předchozí
+            </button>
+            <div className="month-title">{formatMonthName(currentMonthKey)}</div>
+            <button className="week-nav-btn" onClick={onNextMonth}>
+              Další →
+            </button>
+            <button className="week-nav-btn" onClick={onToday}>
+              Dnes
+            </button>
+          </div>
+
+          <div className="month-grid-header">
+            {weekdays.map(day => (
+              <div key={day} className="month-weekday">{day}</div>
+            ))}
+          </div>
+
+          <div className="month-grid">
+            {monthDays.map((day, idx) => {
+              const tasks = getTasksForDate(day.dateString, day.weekKey);
+              const maxVisibleTasks = 3;
+              const visibleTasks = tasks.slice(0, maxVisibleTasks);
+              const remainingTasks = tasks.length - maxVisibleTasks;
+
+              return (
+                <div
+                  key={idx}
+                  className={`month-day-cell ${!day.isCurrentMonth ? 'other-month' : ''} ${day.isToday ? 'today' : ''}`}
+                  onClick={() => onDayClick && onDayClick(day)}
+                >
+                  <div className="month-day-number">{day.dayNumber}</div>
+                  <div className="month-day-tasks">
+                    {visibleTasks.map((task, taskIdx) => (
+                      <div
+                        key={task.id + '-' + taskIdx}
+                        className={`month-task-item ${task.instanceData.completed ? 'completed' : ''}`}
+                        style={{ borderLeftColor: task.categoryColor }}
+                        title={`${task.title} - ${formatDuration(task.instanceData.duration)}`}
+                      >
+                        {task.title}
+                      </div>
+                    ))}
+                    {remainingTasks > 0 && (
+                      <div className="month-more-tasks">
+                        +{remainingTasks} další
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
     // Main App Component
     function WeeklyPlanner() {
       const [data, setData] = useState({
@@ -2131,6 +2487,10 @@ END:VCALENDAR`;
       const [showTransferModal, setShowTransferModal] = useState(false);
       const [showStatistics, setShowStatistics] = useState(false);
       const [showExportModal, setShowExportModal] = useState(false);
+
+      // View mode and month state
+      const [viewMode, setViewMode] = useState('week'); // 'week' or 'month'
+      const [currentMonthKey, setCurrentMonthKey] = useState(getCurrentMonthKey());
 
       // Load data from localStorage
       useEffect(() => {
@@ -2437,10 +2797,25 @@ END:VCALENDAR`;
         <div className="app-container">
           <div className="planner-header">
             <h1 className="planner-title">📅 Týdenní Plánovač</h1>
+            <div className="view-switcher">
+              <button
+                className={`view-switcher-btn ${viewMode === 'week' ? 'active' : ''}`}
+                onClick={() => setViewMode('week')}
+              >
+                Týden
+              </button>
+              <button
+                className={`view-switcher-btn ${viewMode === 'month' ? 'active' : ''}`}
+                onClick={() => setViewMode('month')}
+              >
+                Měsíc
+              </button>
+            </div>
           </div>
 
-          <div className="planner-header">
-            <div className="week-navigation">
+          {viewMode === 'week' && (
+            <div className="planner-header">
+              <div className="week-navigation">
               <button className="week-nav-btn" onClick={() => setCurrentWeekKey(getPrevWeek(currentWeekKey))}>
                 ← Předchozí
               </button>
@@ -2456,7 +2831,9 @@ END:VCALENDAR`;
               </button>
             </div>
           </div>
+          )}
 
+          {viewMode === 'week' && (
           <div className="planner-header">
             {saveStatus && <span className="save-status">{saveStatus}</span>}
             <div className="header-actions">
@@ -2729,6 +3106,23 @@ END:VCALENDAR`;
               })}
             </div>
           </div>
+          )}
+
+          {viewMode === 'month' && (
+            <MonthView
+              data={data}
+              categories={data.categories}
+              currentMonthKey={currentMonthKey}
+              onPrevMonth={() => setCurrentMonthKey(getPrevMonth(currentMonthKey))}
+              onNextMonth={() => setCurrentMonthKey(getNextMonth(currentMonthKey))}
+              onToday={() => setCurrentMonthKey(getCurrentMonthKey())}
+              onDayClick={(day) => {
+                // Switch to week view and navigate to that week
+                setViewMode('week');
+                setCurrentWeekKey(day.weekKey);
+              }}
+            />
+          )}
 
           <CategoryManager
             isOpen={showCategoryManager}
