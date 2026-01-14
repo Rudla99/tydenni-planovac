@@ -1196,6 +1196,61 @@
       color: #a1a1aa;
       margin-top: 16px;
     }
+
+    /* Progress bar styles */
+    .task-progress-bar {
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+
+    .task-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #10b981 0%, #34d399 100%);
+      transition: width 0.3s;
+      border-radius: 2px;
+    }
+
+    .task-progress-text {
+      font-size: 0.7rem;
+      color: #71717a;
+      margin-top: 4px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Task title edit mode */
+    .task-title-edit {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid #7c3aed;
+      border-radius: 6px;
+      padding: 6px 8px;
+      color: #e4e4e7;
+      font-size: 0.88rem;
+      font-family: inherit;
+      outline: none;
+    }
+
+    .task-title-editable {
+      cursor: text;
+      padding: 4px;
+      border-radius: 4px;
+      transition: all 0.2s;
+    }
+
+    .task-title-editable:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .task-scheduled-days {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
   </style>
 </head>
 <body>
@@ -1409,12 +1464,19 @@ END:VEVENT`;
       const events = [];
 
       tasks.forEach(task => {
-        if (task.scheduledDay) {
-          const dayIndex = DAYS.findIndex(d => d.id === task.scheduledDay);
+        const instances = getTaskInstances(task);
+        Object.keys(instances).forEach(dayId => {
+          const dayIndex = DAYS.findIndex(d => d.id === dayId);
           if (dayIndex !== -1 && weekDates[dayIndex]) {
-            events.push(generateICalEvent(task, weekDates[dayIndex], categories));
+            // Create a temporary task object for each instance
+            const instanceTask = {
+              ...task,
+              duration: instances[dayId].duration,
+              completed: instances[dayId].completed
+            };
+            events.push(generateICalEvent(instanceTask, weekDates[dayIndex], categories));
           }
-        }
+        });
       });
 
       const icalContent = `BEGIN:VCALENDAR
@@ -1616,8 +1678,8 @@ END:VCALENDAR`;
 
       const getFilteredTasks = () => {
         if (mode === 'all') return prevWeekTasks;
-        if (mode === 'unscheduled') return prevWeekTasks.filter(t => !t.scheduledDay);
-        if (mode === 'incomplete') return prevWeekTasks.filter(t => !t.completed);
+        if (mode === 'unscheduled') return prevWeekTasks.filter(t => !isTaskScheduled(t));
+        if (mode === 'incomplete') return prevWeekTasks.filter(t => getTaskProgress(t) < 100);
         if (mode === 'manual') return prevWeekTasks.filter(t => selectedTasks.includes(t.id));
         return [];
       };
@@ -1666,7 +1728,7 @@ END:VCALENDAR`;
               <div>
                 <div style={{ fontWeight: 600, marginBottom: '4px' }}>Jen nezařazené</div>
                 <div style={{ fontSize: '0.8rem', color: '#71717a' }}>
-                  Úkoly, které nebyly naplánované ({prevWeekTasks.filter(t => !t.scheduledDay).length})
+                  Úkoly, které nebyly naplánované ({prevWeekTasks.filter(t => !isTaskScheduled(t)).length})
                 </div>
               </div>
             </div>
@@ -1679,7 +1741,7 @@ END:VCALENDAR`;
               <div>
                 <div style={{ fontWeight: 600, marginBottom: '4px' }}>Jen nedokončené</div>
                 <div style={{ fontSize: '0.8rem', color: '#71717a' }}>
-                  Úkoly, které nebyly dokončeny ({prevWeekTasks.filter(t => !t.completed).length})
+                  Úkoly, které nebyly dokončeny ({prevWeekTasks.filter(t => getTaskProgress(t) < 100).length})
                 </div>
               </div>
             </div>
@@ -1732,13 +1794,16 @@ END:VCALENDAR`;
       const [selectedDays, setSelectedDays] = useState(['mon', 'tue', 'wed', 'thu', 'fri']);
       const [selectedTasks, setSelectedTasks] = useState([]);
 
-      const scheduledTasks = tasks.filter(t => t.scheduledDay);
+      const scheduledTasks = tasks.filter(t => isTaskScheduled(t));
 
       const getTasksToExport = () => {
         if (exportMode === 'all') {
           return scheduledTasks;
         } else if (exportMode === 'days') {
-          return scheduledTasks.filter(t => selectedDays.includes(t.scheduledDay));
+          return scheduledTasks.filter(t => {
+            const instances = getTaskInstances(t);
+            return selectedDays.some(dayId => instances[dayId]);
+          });
         } else if (exportMode === 'tasks') {
           return scheduledTasks.filter(t => selectedTasks.includes(t.id));
         }
@@ -1839,7 +1904,10 @@ END:VCALENDAR`;
               <div className="export-section-title">Vyber dny:</div>
               <div className="export-selection-list">
                 {DAYS.map(day => {
-                  const dayTasks = scheduledTasks.filter(t => t.scheduledDay === day.id);
+                  const dayTasks = scheduledTasks.filter(t => {
+                    const instances = getTaskInstances(t);
+                    return instances[day.id];
+                  });
                   return (
                     <div key={day.id} className="export-selection-item">
                       <input
@@ -1862,7 +1930,8 @@ END:VCALENDAR`;
               <div className="export-section-title">Vyber úkoly:</div>
               <div className="export-selection-list">
                 {scheduledTasks.map(task => {
-                  const day = DAYS.find(d => d.id === task.scheduledDay);
+                  const scheduledDays = getTaskScheduledDays(task);
+                  const totalDuration = getTaskTotalDuration(task);
                   const category = categories.find(c => c.id === task.categoryId);
                   return (
                     <div key={task.id} className="export-selection-item">
@@ -1874,7 +1943,7 @@ END:VCALENDAR`;
                       <div style={{ flex: 1 }}>
                         <div style={{ fontWeight: 500 }}>{task.title}</div>
                         <div style={{ fontSize: '0.75rem', color: '#71717a', marginTop: '2px' }}>
-                          {day?.short} • {formatDuration(task.duration)}
+                          {scheduledDays.map(d => DAYS.find(day => day.id === d)?.short).join(', ')} • {formatDuration(totalDuration)}
                           {category && ` • ${category.name}`}
                         </div>
                       </div>
@@ -1902,7 +1971,7 @@ END:VCALENDAR`;
       const getTotalHours = () => {
         return allWeeks.reduce((total, weekKey) => {
           const weekTasks = data.weeks[weekKey]?.tasks || [];
-          return total + weekTasks.reduce((sum, t) => sum + (t.duration || 1), 0);
+          return total + weekTasks.reduce((sum, t) => sum + getTaskTotalDuration(t), 0);
         }, 0);
       };
 
@@ -1914,7 +1983,7 @@ END:VCALENDAR`;
       const getCompletedCount = () => {
         return allWeeks.reduce((total, weekKey) => {
           const weekTasks = data.weeks[weekKey]?.tasks || [];
-          return total + weekTasks.filter(t => t.completed).length;
+          return total + weekTasks.filter(t => getTaskProgress(t) === 100).length;
         }, 0);
       };
 
@@ -1928,7 +1997,7 @@ END:VCALENDAR`;
             if (!categoryHours[catId]) {
               categoryHours[catId] = 0;
             }
-            categoryHours[catId] += task.duration || 1;
+            categoryHours[catId] += getTaskTotalDuration(task);
           });
         });
 
@@ -1949,7 +2018,7 @@ END:VCALENDAR`;
       const getWeeklyData = () => {
         return allWeeks.slice(-8).map(weekKey => {
           const weekTasks = data.weeks[weekKey]?.tasks || [];
-          const total = weekTasks.reduce((sum, t) => sum + (t.duration || 1), 0);
+          const total = weekTasks.reduce((sum, t) => sum + getTaskTotalDuration(t), 0);
           const { week } = parseWeekKey(weekKey);
           return { week: `T${week}`, hours: total };
         });
@@ -2116,6 +2185,9 @@ END:VCALENDAR`;
 
       const currentTasks = data.weeks[currentWeekKey]?.tasks || [];
 
+      const [editingTitle, setEditingTitle] = useState(null);
+      const [editTitleValue, setEditTitleValue] = useState('');
+
       const updateTasks = (newTasks) => {
         setData(prev => ({
           ...prev,
@@ -2126,13 +2198,24 @@ END:VCALENDAR`;
         }));
       };
 
-      const getTasksForDay = (dayId) =>
-        currentTasks
-          .filter(t => t.scheduledDay === dayId)
-          .sort((a, b) => a.order - b.order);
+      // Returns array of { task, dayId, instance } for a specific day
+      const getTasksForDay = (dayId) => {
+        const taskInstances = [];
+        currentTasks.forEach(task => {
+          const instances = getTaskInstances(task);
+          if (instances[dayId]) {
+            taskInstances.push({
+              task,
+              dayId,
+              instance: instances[dayId]
+            });
+          }
+        });
+        return taskInstances.sort((a, b) => a.instance.order - b.instance.order);
+      };
 
       const getTotalHours = (dayId) =>
-        getTasksForDay(dayId).reduce((sum, t) => sum + (t.duration || 1), 0);
+        getTasksForDay(dayId).reduce((sum, item) => sum + (item.instance.duration || 1), 0);
 
       const addTask = () => {
         if (!newTaskTitle.trim()) return;
@@ -2141,15 +2224,21 @@ END:VCALENDAR`;
           id: `task_${Date.now()}`,
           title: newTaskTitle.trim(),
           categoryId: null,
-          duration: data.settings.defaultDuration,
-          scheduledDay: null,
-          order: 0,
-          completed: false,
+          instances: {}, // New format: instances per day
           createdAt: new Date().toISOString()
         };
 
         updateTasks([...currentTasks, newTask]);
         setNewTaskTitle('');
+      };
+
+      const updateTaskTitle = (taskId, newTitle) => {
+        if (!newTitle.trim()) return;
+        updateTasks(currentTasks.map(t =>
+          t.id === taskId ? { ...t, title: newTitle.trim() } : t
+        ));
+        setEditingTitle(null);
+        setEditTitleValue('');
       };
 
       const handleDragStart = (e, task) => {
@@ -2169,24 +2258,53 @@ END:VCALENDAR`;
         setDragOverIndex(null);
       };
 
-      const handleDropOnDay = (e, dayId, dropIndex = null) => {
+      const handleDropOnDay = (e, dayId, dropIndex = null, sourceDayId = null) => {
         e.preventDefault();
         if (!draggedTask) return;
 
-        const dayTasks = getTasksForDay(dayId).filter(t => t.id !== draggedTask.id);
+        const dayTasks = getTasksForDay(dayId).filter(item => item.task.id !== draggedTask.id);
         const insertIndex = dropIndex !== null ? dropIndex : dayTasks.length;
 
         const reorderedTasks = currentTasks.map(t => {
           if (t.id === draggedTask.id) {
-            return { ...t, scheduledDay: dayId, order: insertIndex };
-          }
-          if (t.scheduledDay === dayId && t.id !== draggedTask.id) {
-            const currentIndex = dayTasks.findIndex(dt => dt.id === t.id);
-            let newOrder = currentIndex;
-            if (currentIndex >= insertIndex) {
-              newOrder = currentIndex + 1;
+            const instances = getTaskInstances(t);
+
+            // If dragging from another day, move the instance
+            if (sourceDayId && instances[sourceDayId]) {
+              const instanceData = instances[sourceDayId];
+              const newInstances = { ...instances };
+              delete newInstances[sourceDayId];
+              newInstances[dayId] = { ...instanceData, order: insertIndex };
+              return { ...t, instances: newInstances };
             }
-            return { ...t, order: newOrder };
+
+            // Adding new instance to this day
+            return {
+              ...t,
+              instances: {
+                ...instances,
+                [dayId]: {
+                  duration: data.settings.defaultDuration,
+                  completed: false,
+                  order: insertIndex
+                }
+              }
+            };
+          }
+
+          // Reorder other tasks in this day
+          const instances = getTaskInstances(t);
+          if (instances[dayId]) {
+            const currentIndex = dayTasks.findIndex(item => item.task.id === t.id);
+            if (currentIndex !== -1 && currentIndex >= insertIndex) {
+              return {
+                ...t,
+                instances: {
+                  ...instances,
+                  [dayId]: { ...instances[dayId], order: currentIndex + 1 }
+                }
+              };
+            }
           }
           return t;
         });
@@ -2203,7 +2321,7 @@ END:VCALENDAR`;
 
         updateTasks(currentTasks.map(t =>
           t.id === draggedTask.id
-            ? { ...t, scheduledDay: null, order: 0 }
+            ? { ...t, instances: {} }  // Remove all instances
             : t
         ));
         setDraggedTask(null);
@@ -2211,18 +2329,28 @@ END:VCALENDAR`;
         setDragOverIndex(null);
       };
 
-      const updateTaskDuration = (taskId, duration) => {
-        updateTasks(currentTasks.map(t =>
-          t.id === taskId ? { ...t, duration } : t
-        ));
+      const updateTaskDuration = (taskId, dayId, duration) => {
+        updateTasks(currentTasks.map(t => {
+          if (t.id === taskId) {
+            const instances = getTaskInstances(t);
+            return {
+              ...t,
+              instances: {
+                ...instances,
+                [dayId]: { ...instances[dayId], duration }
+              }
+            };
+          }
+          return t;
+        }));
         setEditingDuration(null);
         setCustomDuration('');
       };
 
-      const handleCustomDuration = (taskId) => {
+      const handleCustomDuration = (taskId, dayId) => {
         const value = parseFloat(customDuration);
         if (!isNaN(value) && value > 0 && value <= 12) {
-          updateTaskDuration(taskId, value);
+          updateTaskDuration(taskId, dayId, value);
         }
       };
 
@@ -2237,18 +2365,34 @@ END:VCALENDAR`;
         }
       };
 
-      const removeFromSchedule = (taskId) => {
-        updateTasks(currentTasks.map(t =>
-          t.id === taskId
-            ? { ...t, scheduledDay: null, order: 0 }
-            : t
-        ));
+      const removeFromSchedule = (taskId, dayId) => {
+        updateTasks(currentTasks.map(t => {
+          if (t.id === taskId) {
+            const instances = getTaskInstances(t);
+            const newInstances = { ...instances };
+            delete newInstances[dayId];
+            return { ...t, instances: newInstances };
+          }
+          return t;
+        }));
       };
 
-      const toggleCompleted = (taskId) => {
-        updateTasks(currentTasks.map(t =>
-          t.id === taskId ? { ...t, completed: !t.completed } : t
-        ));
+      const toggleCompleted = (taskId, dayId) => {
+        updateTasks(currentTasks.map(t => {
+          if (t.id === taskId) {
+            const instances = getTaskInstances(t);
+            if (instances[dayId]) {
+              return {
+                ...t,
+                instances: {
+                  ...instances,
+                  [dayId]: { ...instances[dayId], completed: !instances[dayId].completed }
+                }
+              };
+            }
+          }
+          return t;
+        }));
       };
 
       const updateTaskCategory = (taskId, categoryId) => {
@@ -2265,7 +2409,7 @@ END:VCALENDAR`;
 
       const resetWeek = () => {
         if (confirm('Odebrat všechny úkoly z rozvrhu? (úkoly zůstanou v seznamu)')) {
-          updateTasks(currentTasks.map(t => ({ ...t, scheduledDay: null, order: 0 })));
+          updateTasks(currentTasks.map(t => ({ ...t, instances: {} })));
         }
       };
 
@@ -2273,9 +2417,7 @@ END:VCALENDAR`;
         const newTasks = tasksToTransfer.map(task => ({
           ...task,
           id: `task_${Date.now()}_${Math.random()}`,
-          scheduledDay: null,
-          order: 0,
-          completed: false,
+          instances: {}, // Reset instances for new week
           createdAt: new Date().toISOString()
         }));
 
@@ -2341,10 +2483,10 @@ END:VCALENDAR`;
 
           <div className="main-container">
             <div
-              className={`backlog-panel ${draggedTask?.scheduledDay ? 'can-drop' : ''} ${dragOverDay === 'backlog' ? 'drag-over' : ''}`}
-              onDragOver={(e) => { if (draggedTask?.scheduledDay) { e.preventDefault(); setDragOverDay('backlog'); }}}
+              className={`backlog-panel ${draggedTask && isTaskScheduled(draggedTask) ? 'can-drop' : ''} ${dragOverDay === 'backlog' ? 'drag-over' : ''}`}
+              onDragOver={(e) => { if (draggedTask && isTaskScheduled(draggedTask)) { e.preventDefault(); setDragOverDay('backlog'); }}}
               onDragLeave={handleDragLeave}
-              onDrop={(e) => { if (draggedTask?.scheduledDay) handleDropOnBacklog(e); }}
+              onDrop={(e) => { if (draggedTask && isTaskScheduled(draggedTask)) handleDropOnBacklog(e); }}
             >
               <div className="backlog-title">Všechny úkoly ({currentTasks.length})</div>
 
@@ -2361,90 +2503,96 @@ END:VCALENDAR`;
               </div>
 
               <div>
-                {currentTasks.map(task => (
-                  <div
-                    key={task.id}
-                    className={`task-card ${draggedTask?.id === task.id ? 'dragging' : ''} ${task.scheduledDay ? 'scheduled' : ''} ${task.completed ? 'completed' : ''}`}
-                    draggable={editingDuration !== task.id}
-                    onDragStart={(e) => editingDuration !== task.id && handleDragStart(e, task)}
-                    onDragEnd={() => setDraggedTask(null)}
-                  >
-                    <button
-                      className="task-delete-btn"
-                      onClick={() => deleteTask(task.id)}
-                    >
-                      ✕
-                    </button>
-                    <div className="task-title">
-                      <input
-                        type="checkbox"
-                        className="task-checkbox"
-                        checked={task.completed}
-                        onChange={() => toggleCompleted(task.id)}
-                      />
-                      <span>{task.title}</span>
-                    </div>
+                {currentTasks.map(task => {
+                  const progress = getTaskProgress(task);
+                  const totalDuration = getTaskTotalDuration(task);
+                  const scheduledDays = getTaskScheduledDays(task);
+                  const isScheduled = isTaskScheduled(task);
 
-                    {editingDuration === task.id ? (
-                      <div className="duration-editor">
-                        <div className="duration-presets">
-                          {DURATION_OPTIONS.map(opt => (
-                            <button
-                              key={opt.value}
-                              className={`duration-preset ${task.duration === opt.value ? 'selected' : ''}`}
-                              onClick={() => updateTaskDuration(task.id, opt.value)}
-                            >
-                              {opt.label}
-                            </button>
-                          ))}
-                        </div>
-                        <div className="duration-custom">
-                          <span className="duration-custom-label">Vlastní:</span>
+                  return (
+                    <div
+                      key={task.id}
+                      className={`task-card ${draggedTask?.id === task.id ? 'dragging' : ''} ${isScheduled ? 'scheduled' : ''}`}
+                      draggable={editingTitle !== task.id && !isScheduled}
+                      onDragStart={(e) => editingTitle !== task.id && !isScheduled && handleDragStart(e, task)}
+                      onDragEnd={() => setDraggedTask(null)}
+                    >
+                      <button
+                        className="task-delete-btn"
+                        onClick={() => deleteTask(task.id)}
+                      >
+                        ✕
+                      </button>
+
+                      <div className="task-title">
+                        {editingTitle === task.id ? (
                           <input
-                            type="number"
-                            className="duration-custom-input"
-                            value={customDuration}
-                            onChange={(e) => setCustomDuration(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && handleCustomDuration(task.id)}
-                            placeholder="hod"
-                            min="0.25"
-                            max="12"
-                            step="0.25"
+                            type="text"
+                            className="task-title-edit"
+                            value={editTitleValue}
+                            onChange={(e) => setEditTitleValue(e.target.value)}
+                            onBlur={() => updateTaskTitle(task.id, editTitleValue)}
+                            onKeyPress={(e) => {
+                              if (e.key === 'Enter') updateTaskTitle(task.id, editTitleValue);
+                              if (e.key === 'Escape') {
+                                setEditingTitle(null);
+                                setEditTitleValue('');
+                              }
+                            }}
                             autoFocus
                           />
-                          <button
-                            className="duration-custom-btn"
-                            onClick={() => handleCustomDuration(task.id)}
+                        ) : (
+                          <span
+                            className="task-title-editable"
+                            onDoubleClick={() => {
+                              setEditingTitle(task.id);
+                              setEditTitleValue(task.title);
+                            }}
+                            title="Double-click to edit"
                           >
-                            OK
-                          </button>
-                        </div>
+                            {task.title}
+                          </span>
+                        )}
                       </div>
-                    ) : (
+
                       <div className="task-meta">
-                        <span
-                          className="task-duration-badge"
-                          onClick={() => startEditing(task.id, task.duration)}
-                        >
-                          ⏱ {formatDuration(task.duration)}
-                        </span>
+                        {totalDuration > 0 && (
+                          <span className="task-duration-badge">
+                            ⏱ {formatDuration(totalDuration)}
+                          </span>
+                        )}
                         <CategoryPicker
                           task={task}
                           categories={data.categories}
                           onChange={(categoryId) => updateTaskCategory(task.id, categoryId)}
                         />
-                        {task.scheduledDay && (
-                          <Fragment>
-                            <span className="task-scheduled-badge">✓ V plánu</span>
-                            <span className="task-day-badge">
-                              {DAYS.find(d => d.id === task.scheduledDay)?.short}
-                            </span>
-                          </Fragment>
-                        )}
                       </div>
-                    )}
-                  </div>
-                ))}
+
+                      {isScheduled && (
+                        <Fragment>
+                          <div className="task-scheduled-days">
+                            {scheduledDays.map(dayId => (
+                              <span key={dayId} className="task-day-badge">
+                                {DAYS.find(d => d.id === dayId)?.short}
+                              </span>
+                            ))}
+                          </div>
+
+                          {progress > 0 && (
+                            <div>
+                              <div className="task-progress-bar">
+                                <div className="task-progress-fill" style={{ width: `${progress}%` }} />
+                              </div>
+                              <div className="task-progress-text">
+                                {progress}% hotovo ({formatDuration(getTaskCompletedDuration(task))} / {formatDuration(totalDuration)})
+                              </div>
+                            </div>
+                          )}
+                        </Fragment>
+                      )}
+                    </div>
+                  );
+                })}
 
                 {currentTasks.length === 0 && (
                   <div className="empty-tasks">
@@ -2488,24 +2636,33 @@ END:VCALENDAR`;
                           Přetáhni sem
                         </div>
                       ) : (
-                        dayTasks.map((task, index) => {
+                        dayTasks.map((item, index) => {
+                          const { task, dayId, instance } = item;
                           const category = data.categories.find(c => c.id === task.categoryId);
+                          const taskInstanceKey = `${task.id}_${dayId}`;
 
                           return (
-                            <Fragment key={task.id}>
+                            <Fragment key={taskInstanceKey}>
                               {dragOverDay === day.id && dragOverIndex === index && draggedTask?.id !== task.id && (
                                 <div className="drop-indicator" />
                               )}
                               <div
-                                className={`scheduled-task ${draggedTask?.id === task.id ? 'dragging' : ''} ${task.completed ? 'completed' : ''}`}
+                                className={`scheduled-task ${draggedTask?.id === task.id ? 'dragging' : ''} ${instance.completed ? 'completed' : ''}`}
                                 style={{
-                                  minHeight: 56 + (task.duration - 0.5) * 44
+                                  minHeight: 56 + (instance.duration - 0.5) * 44
                                 }}
                                 draggable
-                                onDragStart={(e) => handleDragStart(e, task)}
+                                onDragStart={(e) => {
+                                  handleDragStart(e, task);
+                                  e.dataTransfer.setData('sourceDayId', dayId);
+                                }}
                                 onDragEnd={() => setDraggedTask(null)}
                                 onDragOver={(e) => handleDragOver(e, day.id, index)}
-                                onDrop={(e) => { e.stopPropagation(); handleDropOnDay(e, day.id, index); }}
+                                onDrop={(e) => {
+                                  e.stopPropagation();
+                                  const sourceDayId = e.dataTransfer.getData('sourceDayId');
+                                  handleDropOnDay(e, day.id, index, sourceDayId);
+                                }}
                               >
                                 <div style={{
                                   position: 'absolute',
@@ -2519,7 +2676,7 @@ END:VCALENDAR`;
                                 <span className="scheduled-task-order">{index + 1}</span>
                                 <button
                                   className="scheduled-task-remove"
-                                  onClick={(e) => { e.stopPropagation(); removeFromSchedule(task.id); }}
+                                  onClick={(e) => { e.stopPropagation(); removeFromSchedule(task.id, dayId); }}
                                   title="Odebrat z rozvrhu"
                                 >
                                   ✕
@@ -2529,22 +2686,22 @@ END:VCALENDAR`;
                                   <input
                                     type="checkbox"
                                     className="task-checkbox"
-                                    checked={task.completed}
-                                    onChange={() => toggleCompleted(task.id)}
+                                    checked={instance.completed}
+                                    onChange={() => toggleCompleted(task.id, dayId)}
                                     style={{ marginLeft: '8px' }}
                                   />
-                                  <div className={`scheduled-task-title ${task.completed ? 'completed' : ''}`}>
+                                  <div className={`scheduled-task-title ${instance.completed ? 'completed' : ''}`}>
                                     {task.title}
                                   </div>
                                 </div>
 
-                                {editingDuration === task.id ? (
+                                {editingDuration === taskInstanceKey ? (
                                   <div className="duration-selector">
                                     {DURATION_OPTIONS.map(opt => (
                                       <button
                                         key={opt.value}
-                                        className={`duration-option ${task.duration === opt.value ? 'selected' : ''}`}
-                                        onClick={(e) => { e.stopPropagation(); updateTaskDuration(task.id, opt.value); }}
+                                        className={`duration-option ${instance.duration === opt.value ? 'selected' : ''}`}
+                                        onClick={(e) => { e.stopPropagation(); updateTaskDuration(task.id, dayId, opt.value); }}
                                       >
                                         {opt.label}
                                       </button>
@@ -2553,9 +2710,9 @@ END:VCALENDAR`;
                                 ) : (
                                   <div
                                     className="scheduled-task-duration"
-                                    onClick={() => startEditing(task.id, task.duration)}
+                                    onClick={() => startEditing(taskInstanceKey, instance.duration)}
                                   >
-                                    ⏱ {formatDuration(task.duration)}
+                                    ⏱ {formatDuration(instance.duration)}
                                   </div>
                                 )}
                               </div>
