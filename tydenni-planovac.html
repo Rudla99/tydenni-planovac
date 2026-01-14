@@ -1238,12 +1238,58 @@
     ];
 
     const STORAGE_KEY = 'weekly-planner-data';
+    const DATA_VERSION = 2; // Track data structure version
 
     // Helper functions
     const formatDuration = (hours) => {
       if (hours < 1) return `${Math.round(hours * 60)} min`;
       if (hours === Math.floor(hours)) return `${hours} hod`;
       return `${hours} hod`;
+    };
+
+    // Task instance helpers
+    const getTaskInstances = (task) => {
+      // Return instances object (new format) or migrate from old format
+      if (task.instances) return task.instances;
+
+      // Migrate old format to new
+      if (task.scheduledDay) {
+        return {
+          [task.scheduledDay]: {
+            duration: task.duration || 1,
+            completed: task.completed || false,
+            order: task.order || 0
+          }
+        };
+      }
+      return {};
+    };
+
+    const getTaskTotalDuration = (task) => {
+      const instances = getTaskInstances(task);
+      return Object.values(instances).reduce((sum, inst) => sum + (inst.duration || 1), 0);
+    };
+
+    const getTaskCompletedDuration = (task) => {
+      const instances = getTaskInstances(task);
+      return Object.values(instances).filter(inst => inst.completed)
+        .reduce((sum, inst) => sum + (inst.duration || 1), 0);
+    };
+
+    const getTaskProgress = (task) => {
+      const total = getTaskTotalDuration(task);
+      const completed = getTaskCompletedDuration(task);
+      return total > 0 ? Math.round((completed / total) * 100) : 0;
+    };
+
+    const isTaskScheduled = (task) => {
+      const instances = getTaskInstances(task);
+      return Object.keys(instances).length > 0;
+    };
+
+    const getTaskScheduledDays = (task) => {
+      const instances = getTaskInstances(task);
+      return Object.keys(instances);
     };
 
     // Week helpers using date-fns
