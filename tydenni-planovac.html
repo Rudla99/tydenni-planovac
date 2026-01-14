@@ -2814,57 +2814,56 @@ END:VCALENDAR`;
           </div>
 
           {viewMode === 'week' && (
-            <div className="planner-header">
-              <div className="week-navigation">
-              <button className="week-nav-btn" onClick={() => setCurrentWeekKey(getPrevWeek(currentWeekKey))}>
-                ← Předchozí
-              </button>
-              <div className="week-display">
-                <div className="week-range">{formatWeekRange(currentWeekKey)}</div>
-                <div className="week-number">Týden {week}</div>
+            <Fragment>
+              <div className="planner-header">
+                <div className="week-navigation">
+                  <button className="week-nav-btn" onClick={() => setCurrentWeekKey(getPrevWeek(currentWeekKey))}>
+                    ← Předchozí
+                  </button>
+                  <div className="week-display">
+                    <div className="week-range">{formatWeekRange(currentWeekKey)}</div>
+                    <div className="week-number">Týden {week}</div>
+                  </div>
+                  <button className="week-nav-btn" onClick={() => setCurrentWeekKey(getNextWeek(currentWeekKey))}>
+                    Další →
+                  </button>
+                  <button className="week-nav-btn" onClick={() => setCurrentWeekKey(getCurrentWeekKey())}>
+                    Dnes
+                  </button>
+                </div>
               </div>
-              <button className="week-nav-btn" onClick={() => setCurrentWeekKey(getNextWeek(currentWeekKey))}>
-                Další →
-              </button>
-              <button className="week-nav-btn" onClick={() => setCurrentWeekKey(getCurrentWeekKey())}>
-                Dnes
-              </button>
-            </div>
-          </div>
-          )}
 
-          {viewMode === 'week' && (
-          <div className="planner-header">
-            {saveStatus && <span className="save-status">{saveStatus}</span>}
-            <div className="header-actions">
-              <button className="header-btn primary" onClick={() => setShowExportModal(true)}>
-                📥 Export do Outlooku
-              </button>
-              <button className="header-btn primary" onClick={() => setShowStatistics(true)}>
-                📊 Statistiky
-              </button>
-              <button className="header-btn primary" onClick={() => setShowCategoryManager(true)}>
-                📁 Kategorie
-              </button>
-              <button className="header-btn" onClick={() => setShowTransferModal(true)}>
-                🔄 Přenést úkoly
-              </button>
-              <button className="header-btn" onClick={resetWeek}>
-                ↺ Vyčistit týden
-              </button>
-              <button className="header-btn danger" onClick={clearAllTasks}>
-                🗑 Smazat vše
-              </button>
-            </div>
-          </div>
+              <div className="planner-header">
+                {saveStatus && <span className="save-status">{saveStatus}</span>}
+                <div className="header-actions">
+                  <button className="header-btn primary" onClick={() => setShowExportModal(true)}>
+                    📥 Export do Outlooku
+                  </button>
+                  <button className="header-btn primary" onClick={() => setShowStatistics(true)}>
+                    📊 Statistiky
+                  </button>
+                  <button className="header-btn primary" onClick={() => setShowCategoryManager(true)}>
+                    📁 Kategorie
+                  </button>
+                  <button className="header-btn" onClick={() => setShowTransferModal(true)}>
+                    🔄 Přenést úkoly
+                  </button>
+                  <button className="header-btn" onClick={resetWeek}>
+                    ↺ Vyčistit týden
+                  </button>
+                  <button className="header-btn danger" onClick={clearAllTasks}>
+                    🗑 Smazat vše
+                  </button>
+                </div>
+              </div>
 
-          <div className="main-container">
-            <div
-              className={`backlog-panel ${draggedTask && isTaskScheduled(draggedTask) ? 'can-drop' : ''} ${dragOverDay === 'backlog' ? 'drag-over' : ''}`}
-              onDragOver={(e) => { if (draggedTask && isTaskScheduled(draggedTask)) { e.preventDefault(); setDragOverDay('backlog'); }}}
-              onDragLeave={handleDragLeave}
-              onDrop={(e) => { if (draggedTask && isTaskScheduled(draggedTask)) handleDropOnBacklog(e); }}
-            >
+              <div className="main-container">
+                <div
+                  className={`backlog-panel ${draggedTask && isTaskScheduled(draggedTask) ? 'can-drop' : ''} ${dragOverDay === 'backlog' ? 'drag-over' : ''}`}
+                  onDragOver={(e) => { if (draggedTask && isTaskScheduled(draggedTask)) { e.preventDefault(); setDragOverDay('backlog'); }}}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => { if (draggedTask && isTaskScheduled(draggedTask)) handleDropOnBacklog(e); }}
+                >
               <div className="backlog-title">Všechny úkoly ({currentTasks.length})</div>
 
               <div className="add-task-form">
@@ -3105,7 +3104,8 @@ END:VCALENDAR`;
                 );
               })}
             </div>
-          </div>
+              </div>
+            </Fragment>
           )}
 
           {viewMode === 'month' && (
