@@ -1442,6 +1442,159 @@
         padding: 3px 4px;
       }
     }
+
+    /* Time-based schedule styles */
+    .schedule-container {
+      display: flex;
+      gap: 0;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    .time-axis {
+      width: 70px;
+      background: rgba(255, 255, 255, 0.03);
+      border-right: 1px solid rgba(255, 255, 255, 0.08);
+      flex-shrink: 0;
+    }
+
+    .time-slot {
+      height: 60px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      padding: 4px 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      color: #71717a;
+      text-align: right;
+    }
+
+    .schedule-days {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      flex: 1;
+      position: relative;
+    }
+
+    .schedule-day-column {
+      border-right: 1px solid rgba(255, 255, 255, 0.05);
+      position: relative;
+    }
+
+    .schedule-day-column:last-child {
+      border-right: none;
+    }
+
+    .schedule-day-header {
+      height: 60px;
+      padding: 8px;
+      text-align: center;
+      border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.03);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .schedule-day-name {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #e4e4e7;
+    }
+
+    .schedule-day-date {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      color: #71717a;
+      margin-top: 2px;
+    }
+
+    .schedule-grid {
+      position: relative;
+      height: calc(16 * 60px); /* 16 hours * 60px */
+    }
+
+    .schedule-hour-line {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 60px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      pointer-events: none;
+    }
+
+    .schedule-task {
+      position: absolute;
+      left: 4px;
+      right: 4px;
+      background: linear-gradient(135deg, rgba(124, 58, 237, 0.3) 0%, rgba(99, 102, 241, 0.2) 100%);
+      border-left: 3px solid;
+      border-radius: 6px;
+      padding: 6px 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      overflow: hidden;
+      z-index: 1;
+    }
+
+    .schedule-task:hover {
+      transform: translateX(2px);
+      box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+      z-index: 5;
+    }
+
+    .schedule-task.completed {
+      opacity: 0.5;
+    }
+
+    .schedule-task-title {
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: #e4e4e7;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 2px;
+    }
+
+    .schedule-task-time {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.65rem;
+      color: #a78bfa;
+    }
+
+    .schedule-task.completed .schedule-task-title {
+      text-decoration: line-through;
+    }
+
+    .time-picker {
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 8px;
+      padding: 8px;
+      margin-top: 6px;
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
+
+    .time-input {
+      width: 60px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 6px;
+      padding: 4px 6px;
+      color: #e4e4e7;
+      font-size: 0.75rem;
+      font-family: 'JetBrains Mono', monospace;
+      outline: none;
+      text-align: center;
+    }
+
+    .time-input:focus {
+      border-color: #7c3aed;
+    }
   </style>
 </head>
 <body>
@@ -1496,7 +1649,17 @@
     // Task instance helpers
     const getTaskInstances = (task) => {
       // Return instances object (new format) or migrate from old format
-      if (task.instances) return task.instances;
+      if (task.instances) {
+        // Ensure all instances have startTime
+        const updated = {};
+        Object.keys(task.instances).forEach(dayId => {
+          updated[dayId] = {
+            ...task.instances[dayId],
+            startTime: task.instances[dayId].startTime || '09:00'
+          };
+        });
+        return updated;
+      }
 
       // Migrate old format to new
       if (task.scheduledDay) {
@@ -1504,7 +1667,8 @@
           [task.scheduledDay]: {
             duration: task.duration || 1,
             completed: task.completed || false,
-            order: task.order || 0
+            order: task.order || 0,
+            startTime: '09:00'
           }
         };
       }
@@ -1536,6 +1700,38 @@
     const getTaskScheduledDays = (task) => {
       const instances = getTaskInstances(task);
       return Object.keys(instances);
+    };
+
+    // Time helpers
+    const TIME_SLOTS = [];
+    for (let hour = 6; hour <= 21; hour++) {
+      TIME_SLOTS.push(`${String(hour).padStart(2, '0')}:00`);
+    }
+
+    const parseTime = (timeStr) => {
+      if (!timeStr) return { hour: 9, minute: 0 };
+      const [hour, minute] = timeStr.split(':').map(Number);
+      return { hour, minute };
+    };
+
+    const timeToMinutes = (timeStr) => {
+      const { hour, minute } = parseTime(timeStr);
+      return hour * 60 + minute;
+    };
+
+    const minutesToTime = (minutes) => {
+      const hour = Math.floor(minutes / 60);
+      const minute = minutes % 60;
+      return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+    };
+
+    const calculateTaskPosition = (startTime, duration) => {
+      const startMinutes = timeToMinutes(startTime || '09:00');
+      const baseMinutes = 6 * 60; // 6:00 AM
+      const offsetMinutes = startMinutes - baseMinutes;
+      const top = (offsetMinutes / 60) * 60; // 60px per hour
+      const height = duration * 60; // 60px per hour
+      return { top, height };
     };
 
     // Week helpers using date-fns
@@ -1683,14 +1879,15 @@
       return `${year}${month}${day}T${hours}${minutes}${seconds}`;
     };
 
-    const generateICalEvent = (task, date, categories) => {
+    const generateICalEvent = (task, date, categories, startTime = '09:00') => {
       const category = categories.find(c => c.id === task.categoryId);
+      const { hour, minute } = parseTime(startTime);
       const startDate = new Date(date);
-      startDate.setHours(9, 0, 0, 0); // Default start time 9:00
+      startDate.setHours(hour, minute, 0, 0);
 
       const endDate = new Date(startDate);
       endDate.setHours(startDate.getHours() + Math.floor(task.duration));
-      endDate.setMinutes((task.duration % 1) * 60);
+      endDate.setMinutes(startDate.getMinutes() + (task.duration % 1) * 60);
 
       const uid = `${task.id}@tydenni-planovac`;
       const dtstamp = formatICalDateTime(new Date());
@@ -1731,7 +1928,8 @@ END:VEVENT`;
               duration: instances[dayId].duration,
               completed: instances[dayId].completed
             };
-            events.push(generateICalEvent(instanceTask, weekDates[dayIndex], categories));
+            const startTime = instances[dayId].startTime || '09:00';
+            events.push(generateICalEvent(instanceTask, weekDates[dayIndex], categories, startTime));
           }
         });
       });
@@ -2978,7 +3176,106 @@ END:VCALENDAR`;
               </div>
             </div>
 
-            <div className="calendar-grid">
+            <div className="schedule-container">
+              {/* Time axis */}
+              <div className="time-axis">
+                <div style={{ height: '60px' }} /> {/* Header spacer */}
+                {TIME_SLOTS.map(time => (
+                  <div key={time} className="time-slot">
+                    {time}
+                  </div>
+                ))}
+              </div>
+
+              {/* Days grid */}
+              <div className="schedule-days">
+                {DAYS.map((day, dayIndex) => {
+                  const dayTasks = getTasksForDay(day.id);
+                  const dayDate = weekDates[dayIndex];
+                  const totalHours = getTotalHours(day.id);
+                  const isOver = totalHours > data.settings.hoursPerDay;
+
+                  return (
+                    <div key={day.id} className="schedule-day-column">
+                      {/* Day header */}
+                      <div className="schedule-day-header">
+                        <div className="schedule-day-name">{day.name}</div>
+                        <div className="schedule-day-date">
+                          {dayDate.getDate()}.{dayDate.getMonth() + 1}.
+                        </div>
+                        <div style={{
+                          fontSize: '0.65rem',
+                          color: isOver ? '#ef4444' : '#71717a',
+                          marginTop: '2px'
+                        }}>
+                          {totalHours.toFixed(1)}h
+                        </div>
+                      </div>
+
+                      {/* Time grid */}
+                      <div className="schedule-grid">
+                        {/* Hour lines */}
+                        {TIME_SLOTS.map((time, idx) => (
+                          <div
+                            key={time}
+                            className="schedule-hour-line"
+                            style={{ top: `${idx * 60}px` }}
+                          />
+                        ))}
+
+                        {/* Tasks positioned by time */}
+                        {dayTasks.map((item) => {
+                          const { task, dayId, instance } = item;
+                          const category = data.categories.find(c => c.id === task.categoryId);
+                          const { top, height } = calculateTaskPosition(instance.startTime, instance.duration);
+
+                          return (
+                            <div
+                              key={`${task.id}_${dayId}`}
+                              className={`schedule-task ${instance.completed ? 'completed' : ''}`}
+                              style={{
+                                top: `${top}px`,
+                                height: `${Math.max(height, 30)}px`,
+                                borderLeftColor: category?.color || '#7c3aed'
+                              }}
+                              onClick={() => {
+                                // Toggle completion
+                                const updatedTasks = currentTasks.map(t => {
+                                  if (t.id === task.id) {
+                                    const instances = getTaskInstances(t);
+                                    return {
+                                      ...t,
+                                      instances: {
+                                        ...instances,
+                                        [dayId]: {
+                                          ...instances[dayId],
+                                          completed: !instance.completed
+                                        }
+                                      }
+                                    };
+                                  }
+                                  return t;
+                                });
+                                updateTasks(updatedTasks);
+                              }}
+                            >
+                              <div className="schedule-task-title">{task.title}</div>
+                              <div className="schedule-task-time">
+                                {instance.startTime} ({formatDuration(instance.duration)})
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Old calendar grid code temporarily hidden - will remove after testing
+            <div className="calendar-grid-old" style={{ display: 'none' }}>
               {DAYS.map((day, dayIndex) => {
                 const dayTasks = getTasksForDay(day.id);
                 const totalHours = getTotalHours(day.id);
@@ -3104,7 +3401,7 @@ END:VCALENDAR`;
                 );
               })}
             </div>
-              </div>
+          */}
             </Fragment>
           )}
 
