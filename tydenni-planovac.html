@@ -1532,11 +1532,14 @@
       background: linear-gradient(135deg, rgba(124, 58, 237, 0.3) 0%, rgba(99, 102, 241, 0.2) 100%);
       border-left: 3px solid;
       border-radius: 6px;
-      padding: 6px 8px;
+      padding: 4px 6px;
       cursor: pointer;
       transition: all 0.2s;
       overflow: hidden;
       z-index: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
     }
 
     .schedule-task:hover {
@@ -1545,24 +1548,39 @@
       z-index: 5;
     }
 
+    .schedule-task:hover .task-remove-btn-hover {
+      opacity: 1 !important;
+    }
+
     .schedule-task.completed {
       opacity: 0.5;
     }
 
+    .schedule-task:active {
+      cursor: grabbing;
+    }
+
     .schedule-task-title {
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       font-weight: 500;
       color: #e4e4e7;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      margin-bottom: 2px;
+      line-height: 1.2;
     }
 
     .schedule-task-time {
       font-family: 'JetBrains Mono', monospace;
-      font-size: 0.65rem;
+      font-size: 0.6rem;
       color: #a78bfa;
+      margin-top: 2px;
+      line-height: 1;
+    }
+
+    /* Hide time on very small tasks */
+    .schedule-task.small .schedule-task-time {
+      display: none;
     }
 
     .schedule-task.completed .schedule-task-title {
@@ -2905,6 +2923,38 @@ END:VCALENDAR`;
         setCustomDuration('');
       };
 
+      const updateTaskTime = (taskId, dayId, startTime) => {
+        updateTasks(currentTasks.map(t => {
+          if (t.id === taskId) {
+            const instances = getTaskInstances(t);
+            return {
+              ...t,
+              instances: {
+                ...instances,
+                [dayId]: { ...instances[dayId], startTime }
+              }
+            };
+          }
+          return t;
+        }));
+      };
+
+      const toggleTaskCompletion = (taskId, dayId) => {
+        updateTasks(currentTasks.map(t => {
+          if (t.id === taskId) {
+            const instances = getTaskInstances(t);
+            return {
+              ...t,
+              instances: {
+                ...instances,
+                [dayId]: { ...instances[dayId], completed: !instances[dayId].completed }
+              }
+            };
+          }
+          return t;
+        }));
+      };
+
       const handleCustomDuration = (taskId, dayId) => {
         const value = parseFloat(customDuration);
         if (!isNaN(value) && value > 0 && value <= 12) {
@@ -3224,44 +3274,138 @@ END:VCALENDAR`;
                         ))}
 
                         {/* Tasks positioned by time */}
-                        {dayTasks.map((item) => {
+                        {dayTasks.map((item, index) => {
                           const { task, dayId, instance } = item;
                           const category = data.categories.find(c => c.id === task.categoryId);
                           const { top, height } = calculateTaskPosition(instance.startTime, instance.duration);
+                          const taskInstanceKey = `${task.id}_${dayId}`;
 
                           return (
                             <div
-                              key={`${task.id}_${dayId}`}
-                              className={`schedule-task ${instance.completed ? 'completed' : ''}`}
+                              key={taskInstanceKey}
+                              className={`schedule-task ${instance.completed ? 'completed' : ''} ${height < 45 ? 'small' : ''}`}
                               style={{
                                 top: `${top}px`,
-                                height: `${Math.max(height, 30)}px`,
-                                borderLeftColor: category?.color || '#7c3aed'
+                                height: `${Math.max(height, 40)}px`,
+                                borderLeftColor: category?.color || '#7c3aed',
+                                position: 'absolute',
+                                left: '4px',
+                                right: '4px'
                               }}
-                              onClick={() => {
-                                // Toggle completion
-                                const updatedTasks = currentTasks.map(t => {
-                                  if (t.id === task.id) {
-                                    const instances = getTaskInstances(t);
-                                    return {
-                                      ...t,
-                                      instances: {
-                                        ...instances,
-                                        [dayId]: {
-                                          ...instances[dayId],
-                                          completed: !instance.completed
-                                        }
-                                      }
-                                    };
-                                  }
-                                  return t;
-                                });
-                                updateTasks(updatedTasks);
+                              draggable
+                              onDragStart={(e) => {
+                                handleDragStart(e, task);
+                                e.dataTransfer.setData('sourceDayId', dayId);
                               }}
+                              onDragEnd={() => setDraggedTask(null)}
                             >
-                              <div className="schedule-task-title">{task.title}</div>
-                              <div className="schedule-task-time">
-                                {instance.startTime} ({formatDuration(instance.duration)})
+                              {/* Checkbox */}
+                              <div style={{
+                                position: 'absolute',
+                                top: '6px',
+                                left: '8px',
+                                zIndex: 10
+                              }}>
+                                <input
+                                  type="checkbox"
+                                  checked={instance.completed}
+                                  onChange={(e) => {
+                                    e.stopPropagation();
+                                    toggleTaskCompletion(task.id, dayId);
+                                  }}
+                                  style={{
+                                    width: '14px',
+                                    height: '14px',
+                                    cursor: 'pointer',
+                                    accentColor: '#10b981'
+                                  }}
+                                />
+                              </div>
+
+                              {/* Remove button */}
+                              <button
+                                style={{
+                                  position: 'absolute',
+                                  top: '4px',
+                                  right: '4px',
+                                  background: 'rgba(239, 68, 68, 0.2)',
+                                  border: 'none',
+                                  color: '#f87171',
+                                  fontSize: '0.65rem',
+                                  width: '18px',
+                                  height: '18px',
+                                  borderRadius: '50%',
+                                  cursor: 'pointer',
+                                  opacity: 0,
+                                  transition: 'opacity 0.2s',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center'
+                                }}
+                                className="task-remove-btn-hover"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeFromSchedule(task.id, dayId);
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                                onMouseLeave={(e) => e.currentTarget.style.opacity = '0'}
+                              >
+                                ✕
+                              </button>
+
+                              {/* Task content */}
+                              <div style={{ paddingLeft: '24px', paddingRight: '24px', paddingTop: '2px' }}>
+                                <div className="schedule-task-title" style={{
+                                  textDecoration: instance.completed ? 'line-through' : 'none'
+                                }}>
+                                  {task.title}
+                                </div>
+
+                                {/* Time picker */}
+                                {editingDuration === taskInstanceKey ? (
+                                  <div className="time-picker" style={{
+                                    marginTop: '4px',
+                                    padding: '4px',
+                                    display: 'flex',
+                                    gap: '4px',
+                                    flexWrap: 'wrap'
+                                  }}>
+                                    <input
+                                      type="time"
+                                      className="time-input"
+                                      value={instance.startTime || '09:00'}
+                                      onChange={(e) => {
+                                        updateTaskTime(task.id, dayId, e.target.value);
+                                      }}
+                                      onClick={(e) => e.stopPropagation()}
+                                    />
+                                    <select
+                                      className="time-input"
+                                      value={instance.duration}
+                                      onChange={(e) => {
+                                        updateTaskDuration(task.id, dayId, parseFloat(e.target.value));
+                                        setEditingDuration(null);
+                                      }}
+                                      onClick={(e) => e.stopPropagation()}
+                                      style={{ width: '70px' }}
+                                    >
+                                      {DURATION_OPTIONS.map(opt => (
+                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                ) : (
+                                  <div
+                                    className="schedule-task-time"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      startEditing(taskInstanceKey, instance.duration);
+                                    }}
+                                    style={{ cursor: 'pointer' }}
+                                  >
+                                    ⏱ {instance.startTime || '09:00'} • {formatDuration(instance.duration)}
+                                  </div>
+                                )}
                               </div>
                             </div>
                           );
