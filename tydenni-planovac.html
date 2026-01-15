@@ -1613,6 +1613,46 @@
     .time-input:focus {
       border-color: #7c3aed;
     }
+
+    /* Resize handles */
+    .task-resize-handle {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 8px;
+      cursor: ns-resize;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .task-resize-handle::after {
+      content: '';
+      width: 30px;
+      height: 3px;
+      background: rgba(255, 255, 255, 0.3);
+      border-radius: 2px;
+      transition: all 0.2s;
+    }
+
+    .task-resize-handle:hover::after {
+      background: rgba(255, 255, 255, 0.6);
+      width: 40px;
+    }
+
+    .task-resize-handle.top {
+      top: 0;
+    }
+
+    .task-resize-handle.bottom {
+      bottom: 0;
+    }
+
+    .schedule-task.resizing {
+      opacity: 0.8;
+      z-index: 100;
+    }
   </style>
 </head>
 <body>
@@ -2763,6 +2803,9 @@ END:VCALENDAR`;
 
       const [editingTitle, setEditingTitle] = useState(null);
       const [editTitleValue, setEditTitleValue] = useState('');
+      const [editingBacklogTime, setEditingBacklogTime] = useState(null);
+      const [resizingTask, setResizingTask] = useState(null);
+      const [dragStartY, setDragStartY] = useState(null);
 
       const updateTasks = (newTasks) => {
         setData(prev => ({
@@ -2772,6 +2815,42 @@ END:VCALENDAR`;
             [currentWeekKey]: { tasks: newTasks }
           }
         }));
+      };
+
+      // Find next available time slot for a task
+      const findAvailableSlot = (dayId, duration) => {
+        const dayTasks = getTasksForDay(dayId);
+
+        // Sort tasks by start time
+        const sortedTasks = dayTasks.sort((a, b) => {
+          const timeA = timeToMinutes(a.instance.startTime || '09:00');
+          const timeB = timeToMinutes(b.instance.startTime || '09:00');
+          return timeA - timeB;
+        });
+
+        // Start from 6:00
+        let currentMinutes = 6 * 60;
+        const durationMinutes = duration * 60;
+
+        for (const taskItem of sortedTasks) {
+          const taskStart = timeToMinutes(taskItem.instance.startTime || '09:00');
+          const taskEnd = taskStart + (taskItem.instance.duration * 60);
+
+          // If there's a gap before this task
+          if (currentMinutes + durationMinutes <= taskStart) {
+            return minutesToTime(currentMinutes);
+          }
+
+          // Move past this task
+          currentMinutes = taskEnd;
+        }
+
+        // Return the time after all tasks (or 9:00 if no tasks)
+        if (sortedTasks.length === 0) {
+          return '09:00';
+        }
+
+        return minutesToTime(currentMinutes);
       };
 
       // Returns array of { task, dayId, instance } for a specific day
@@ -2855,14 +2934,17 @@ END:VCALENDAR`;
             }
 
             // Adding new instance to this day
+            const defaultDuration = data.settings.defaultDuration;
+            const availableTime = findAvailableSlot(dayId, defaultDuration);
             return {
               ...t,
               instances: {
                 ...instances,
                 [dayId]: {
-                  duration: data.settings.defaultDuration,
+                  duration: defaultDuration,
                   completed: false,
-                  order: insertIndex
+                  order: insertIndex,
+                  startTime: availableTime
                 }
               }
             };
@@ -2966,6 +3048,85 @@ END:VCALENDAR`;
         setEditingDuration(taskId);
         setCustomDuration(currentDuration.toString());
       };
+
+      // Resize handlers
+      const handleResizeStart = (e, task, dayId, handle, instance) => {
+        e.stopPropagation();
+        e.preventDefault();
+        setResizingTask({ taskId: task.id, dayId, handle, startY: e.clientY, instance });
+      };
+
+      const handleResizeMove = (e) => {
+        if (!resizingTask) return;
+
+        const deltaY = e.clientY - resizingTask.startY;
+        const deltaMinutes = Math.round((deltaY / 60) * 60); // 60px = 1 hour
+
+        const { taskId, dayId, handle, instance } = resizingTask;
+        const startMinutes = timeToMinutes(instance.startTime || '09:00');
+        const durationMinutes = instance.duration * 60;
+
+        let newStartMinutes = startMinutes;
+        let newDurationMinutes = durationMinutes;
+
+        if (handle === 'top') {
+          // Resize from top - change start time
+          newStartMinutes = Math.max(6 * 60, Math.min(21 * 60, startMinutes + deltaMinutes));
+          newDurationMinutes = Math.max(30, (startMinutes + durationMinutes) - newStartMinutes);
+        } else {
+          // Resize from bottom - change duration
+          newDurationMinutes = Math.max(30, durationMinutes + deltaMinutes);
+        }
+
+        // Snap to 30-minute intervals
+        newStartMinutes = Math.round(newStartMinutes / 30) * 30;
+        newDurationMinutes = Math.round(newDurationMinutes / 30) * 30;
+
+        const newStartTime = minutesToTime(newStartMinutes);
+        const newDuration = newDurationMinutes / 60;
+
+        // Update task
+        updateTasks(currentTasks.map(t => {
+          if (t.id === taskId) {
+            const instances = getTaskInstances(t);
+            return {
+              ...t,
+              instances: {
+                ...instances,
+                [dayId]: {
+                  ...instances[dayId],
+                  startTime: newStartTime,
+                  duration: newDuration
+                }
+              }
+            };
+          }
+          return t;
+        }));
+
+        // Update resizing state
+        setResizingTask({
+          ...resizingTask,
+          startY: e.clientY,
+          instance: { ...instance, startTime: newStartTime, duration: newDuration }
+        });
+      };
+
+      const handleResizeEnd = () => {
+        setResizingTask(null);
+      };
+
+      // Add global mouse listeners for resize
+      useEffect(() => {
+        if (resizingTask) {
+          document.addEventListener('mousemove', handleResizeMove);
+          document.addEventListener('mouseup', handleResizeEnd);
+          return () => {
+            document.removeEventListener('mousemove', handleResizeMove);
+            document.removeEventListener('mouseup', handleResizeEnd);
+          };
+        }
+      }, [resizingTask]);
 
       const deleteTask = (taskId) => {
         if (confirm('Opravdu chceš smazat tento úkol?')) {
@@ -3181,7 +3342,15 @@ END:VCALENDAR`;
 
                       <div className="task-meta">
                         {totalDuration > 0 && (
-                          <span className="task-duration-badge">
+                          <span
+                            className="task-duration-badge"
+                            onClick={() => {
+                              if (isScheduled) {
+                                setEditingBacklogTime(task.id);
+                              }
+                            }}
+                            style={{ cursor: isScheduled ? 'pointer' : 'default' }}
+                          >
                             ⏱ {formatDuration(totalDuration)}
                           </span>
                         )}
@@ -3191,6 +3360,61 @@ END:VCALENDAR`;
                           onChange={(categoryId) => updateTaskCategory(task.id, categoryId)}
                         />
                       </div>
+
+                      {/* Time editor for scheduled tasks in backlog */}
+                      {editingBacklogTime === task.id && isScheduled && (
+                        <div style={{
+                          background: 'rgba(0, 0, 0, 0.3)',
+                          borderRadius: '8px',
+                          padding: '8px',
+                          marginTop: '8px'
+                        }}>
+                          {scheduledDays.map(dayId => {
+                            const instances = getTaskInstances(task);
+                            const instance = instances[dayId];
+                            const dayName = DAYS.find(d => d.id === dayId)?.name || dayId;
+
+                            return (
+                              <div key={dayId} style={{ marginBottom: '6px' }}>
+                                <div style={{ fontSize: '0.7rem', color: '#a1a1aa', marginBottom: '4px' }}>
+                                  {dayName}
+                                </div>
+                                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                  <input
+                                    type="time"
+                                    className="time-input"
+                                    value={instance.startTime || '09:00'}
+                                    onChange={(e) => {
+                                      updateTaskTime(task.id, dayId, e.target.value);
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                  />
+                                  <select
+                                    className="time-input"
+                                    value={instance.duration}
+                                    onChange={(e) => {
+                                      updateTaskDuration(task.id, dayId, parseFloat(e.target.value));
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                    style={{ width: '70px' }}
+                                  >
+                                    {DURATION_OPTIONS.map(opt => (
+                                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                              </div>
+                            );
+                          })}
+                          <button
+                            className="btn btn-secondary"
+                            onClick={() => setEditingBacklogTime(null)}
+                            style={{ marginTop: '8px', width: '100%', padding: '4px' }}
+                          >
+                            Zavřít
+                          </button>
+                        </div>
+                      )}
 
                       {isScheduled && (
                         <Fragment>
@@ -3280,10 +3504,12 @@ END:VCALENDAR`;
                           const { top, height } = calculateTaskPosition(instance.startTime, instance.duration);
                           const taskInstanceKey = `${task.id}_${dayId}`;
 
+                          const isResizing = resizingTask && resizingTask.taskId === task.id && resizingTask.dayId === dayId;
+
                           return (
                             <div
                               key={taskInstanceKey}
-                              className={`schedule-task ${instance.completed ? 'completed' : ''} ${height < 45 ? 'small' : ''}`}
+                              className={`schedule-task ${instance.completed ? 'completed' : ''} ${height < 45 ? 'small' : ''} ${isResizing ? 'resizing' : ''}`}
                               style={{
                                 top: `${top}px`,
                                 height: `${Math.max(height, 40)}px`,
@@ -3407,6 +3633,16 @@ END:VCALENDAR`;
                                   </div>
                                 )}
                               </div>
+
+                              {/* Resize handles */}
+                              <div
+                                className="task-resize-handle top"
+                                onMouseDown={(e) => handleResizeStart(e, task, dayId, 'top', instance)}
+                              />
+                              <div
+                                className="task-resize-handle bottom"
+                                onMouseDown={(e) => handleResizeStart(e, task, dayId, 'bottom', instance)}
+                              />
                             </div>
                           );
                         })}
