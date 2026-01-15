@@ -2853,6 +2853,19 @@ END:VCALENDAR`;
         return minutesToTime(currentMinutes);
       };
 
+      // Calculate time from Y position in schedule grid
+      const calculateTimeFromY = (e, gridElement) => {
+        const rect = gridElement.getBoundingClientRect();
+        const y = e.clientY - rect.top;
+        // Each hour is 60px, starting from 6:00
+        const minutes = 6 * 60 + Math.round(y / 60 * 60);
+        // Snap to 30-minute intervals
+        const snappedMinutes = Math.round(minutes / 30) * 30;
+        // Clamp between 6:00 and 22:00
+        const clampedMinutes = Math.max(6 * 60, Math.min(22 * 60, snappedMinutes));
+        return minutesToTime(clampedMinutes);
+      };
+
       // Returns array of { task, dayId, instance } for a specific day
       const getTasksForDay = (dayId) => {
         const taskInstances = [];
@@ -2913,12 +2926,12 @@ END:VCALENDAR`;
         setDragOverIndex(null);
       };
 
-      const handleDropOnDay = (e, dayId, dropIndex = null, sourceDayId = null) => {
+      const handleDropOnDay = (e, dayId, startTime = null, sourceDayId = null) => {
         e.preventDefault();
         if (!draggedTask) return;
 
-        const dayTasks = getTasksForDay(dayId).filter(item => item.task.id !== draggedTask.id);
-        const insertIndex = dropIndex !== null ? dropIndex : dayTasks.length;
+        const defaultDuration = data.settings.defaultDuration;
+        const dropTime = startTime || findAvailableSlot(dayId, defaultDuration);
 
         const reorderedTasks = currentTasks.map(t => {
           if (t.id === draggedTask.id) {
@@ -2929,13 +2942,15 @@ END:VCALENDAR`;
               const instanceData = instances[sourceDayId];
               const newInstances = { ...instances };
               delete newInstances[sourceDayId];
-              newInstances[dayId] = { ...instanceData, order: insertIndex };
+              newInstances[dayId] = {
+                ...instanceData,
+                startTime: dropTime,
+                order: 0
+              };
               return { ...t, instances: newInstances };
             }
 
             // Adding new instance to this day
-            const defaultDuration = data.settings.defaultDuration;
-            const availableTime = findAvailableSlot(dayId, defaultDuration);
             return {
               ...t,
               instances: {
@@ -2943,27 +2958,13 @@ END:VCALENDAR`;
                 [dayId]: {
                   duration: defaultDuration,
                   completed: false,
-                  order: insertIndex,
-                  startTime: availableTime
+                  order: 0,
+                  startTime: dropTime
                 }
               }
             };
           }
 
-          // Reorder other tasks in this day
-          const instances = getTaskInstances(t);
-          if (instances[dayId]) {
-            const currentIndex = dayTasks.findIndex(item => item.task.id === t.id);
-            if (currentIndex !== -1 && currentIndex >= insertIndex) {
-              return {
-                ...t,
-                instances: {
-                  ...instances,
-                  [dayId]: { ...instances[dayId], order: currentIndex + 1 }
-                }
-              };
-            }
-          }
           return t;
         });
 
@@ -3487,7 +3488,26 @@ END:VCALENDAR`;
                       </div>
 
                       {/* Time grid */}
-                      <div className="schedule-grid">
+                      <div
+                        className="schedule-grid"
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          if (draggedTask) {
+                            setDragOverDay(day.id);
+                          }
+                        }}
+                        onDragLeave={() => setDragOverDay(null)}
+                        onDrop={(e) => {
+                          if (!draggedTask) return;
+                          const sourceDayId = e.dataTransfer.getData('sourceDayId');
+                          const dropTime = calculateTimeFromY(e, e.currentTarget);
+                          handleDropOnDay(e, day.id, dropTime, sourceDayId);
+                        }}
+                        style={{
+                          background: dragOverDay === day.id ? 'rgba(124, 58, 237, 0.05)' : 'transparent',
+                          transition: 'background 0.2s'
+                        }}
+                      >
                         {/* Hour lines */}
                         {TIME_SLOTS.map((time, idx) => (
                           <div
@@ -3516,10 +3536,15 @@ END:VCALENDAR`;
                                 borderLeftColor: category?.color || '#7c3aed',
                                 position: 'absolute',
                                 left: '4px',
-                                right: '4px'
+                                right: '4px',
+                                cursor: isResizing ? 'ns-resize' : 'grab'
                               }}
-                              draggable
+                              draggable={!isResizing}
                               onDragStart={(e) => {
+                                if (isResizing) {
+                                  e.preventDefault();
+                                  return;
+                                }
                                 handleDragStart(e, task);
                                 e.dataTransfer.setData('sourceDayId', dayId);
                               }}
